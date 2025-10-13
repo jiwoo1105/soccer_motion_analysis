@@ -113,7 +113,7 @@
 
 ```bash
 # 1. 저장소 클론
-git clone https://github.com/your-username/soccer_motion_analysis.git
+git clone https://github.com/jiwoo1105/soccer_motion_analysis.git
 cd soccer_motion_analysis
 
 # 2. 가상환경 생성 (권장)
@@ -562,7 +562,7 @@ similarity = max(0, 100 - avg_diff * 2)
 ```
 MIT License
 
-Copyright (c) 2025 [Your Name]
+Copyright (c) 2025 PARK JIWOO
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -573,10 +573,10 @@ in the Software without restriction...
 
 ## 📧 연락처
 
-**개발자**: [Your Name]
+**개발자**: PARK JIWOO
 
 - 📧 Email: your.email@example.com
-- 🐙 GitHub: [@your-username](https://github.com/your-username)
+- 🐙 GitHub: https://github.com/jiwoo1105
 - 💼 LinkedIn: [Your LinkedIn](https://linkedin.com/in/your-profile)
 
 **프로젝트 링크**: [https://github.com/your-username/soccer_motion_analysis](https://github.com/your-username/soccer_motion_analysis)
@@ -593,9 +593,8 @@ in the Software without restriction...
 
 <div align="center">
 
-**⭐ 이 프로젝트가 도움이 되었다면 Star를 눌러주세요! ⭐**
 
-Made with ❤️ and ⚽ by [Your Name]
+Made with ❤️ and ⚽ by PARK JIWOO
 
 [🔝 맨 위로 가기](#-soccer-motion-analysis)
 

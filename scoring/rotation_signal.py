@@ -78,14 +78,16 @@ def detect_spikes_hampel(angles, thresh=SPIKE_THRESH, half_win=HAMPEL_HALF_WIN):
     return bad, max_run
 
 
-def clean_angle(angles):
-    """이상치 제거 → 보간 → 평활 → 드리프트 제거
+def despike(angles):
+    """이상치 제거 → 선형 보간. 평활도 드리프트 제거도 하지 않는다.
+
+    진폭 측정에는 이 단계까지만 쓴다. savgol을 걸면 스윙 대역에서 진폭이
+    깎이기 때문이다 (`amplitude_touch_median` 주석 참조).
 
     Returns:
-        detrended, bad, max_run
+        cleaned, bad, max_run
     """
     a = np.asarray(angles, dtype=float)
-    n = len(a)
 
     # unwrap: 2D 폭 기반 각도는 0~90° 범위라 ±180° 경계를 넘지 않으므로
     # 사실상 no-op다. z축 파이프라인과 순서를 맞추기 위해 남겨둔다.
@@ -97,6 +99,21 @@ def clean_angle(angles):
     if len(good) >= 2 and bad.any():
         cleaned[bad] = np.interp(np.where(bad)[0], good, cleaned[good])
 
+    return cleaned, bad, max_run
+
+
+def clean_angle(angles):
+    """despike → savgol 평활 → 드리프트 제거
+
+    교차상관(Phase 1 게이트)처럼 저주파 드리프트를 걷어내야 하는 용도에만 쓴다.
+    **진폭 측정에는 쓰지 마라** — savgol(41)이 스윙 대역에서 진폭을 깎는다.
+
+    Returns:
+        detrended, bad, max_run
+    """
+    cleaned, bad, max_run = despike(angles)
+    n = len(cleaned)
+
     win = min(SAVGOL_WIN, n if n % 2 == 1 else n - 1)
     smoothed = savgol_filter(cleaned, win, 2) if win >= 3 else cleaned
 
@@ -104,6 +121,50 @@ def clean_angle(angles):
     baseline = savgol_filter(smoothed, dwin, 2) if dwin >= 3 else np.zeros(n)
 
     return smoothed - baseline, bad, max_run
+
+
+def amplitude_touch_median(angles, centers, window=8):
+    """인접 터치 윈도우 중앙값의 차이로 진폭을 정의 (채택본)
+
+        진폭 = mean(|median(터치ᵢ₊₁ ±window) − median(터치ᵢ ±window)|)
+
+    savgol(41,2) + 드리프트 제거(81,2) 경로를 쓰지 않는 이유:
+    그 경로는 스윙 주기 20~40프레임 대역에서 진폭의 8~43%만 통과시키고,
+    감쇠율이 주기에 따라 비단조로 널뛴다(20f→22%, 25f→8%, 30f→43%).
+    같은 크기로 돌아도 템포가 다르면 다른 진폭이 나온다는 뜻이다.
+    비율 지표일 때는 분자·분모가 같이 깎여 부분 상쇄됐지만, 진폭을 직접
+    채점하면 이 감쇠가 그대로 점수에 들어간다.
+
+    중앙값 차이 방식의 장점:
+      - 터치 정렬이라 헤드업과 설계가 통일된다
+      - 필터를 안 거치므로 감쇠가 없다
+      - 인접 터치끼리 비교하므로 저주파 드리프트가 자동 상쇄된다
+      - 윈도우 17프레임의 중앙값이라 잔여 지터에 강건하다
+
+    Args:
+        angles: despike까지만 거친 각도 시계열
+        centers: 유효 터치의 인덱스 (시간순)
+        window: 터치 전후 프레임 수
+
+    Returns:
+        (진폭, 구간별 차이 리스트). 터치가 2개 미만이면 (None, []).
+    """
+    a = np.asarray(angles, dtype=float)
+    n = len(a)
+    centers = sorted(int(c) for c in centers)
+    if len(centers) < 2:
+        return None, []
+
+    medians = []
+    for c in centers:
+        lo, hi = max(0, c - window), min(n, c + window + 1)
+        seg = a[lo:hi]
+        if len(seg) == 0:
+            return None, []
+        medians.append(float(np.median(seg)))
+
+    diffs = [abs(medians[i + 1] - medians[i]) for i in range(len(medians) - 1)]
+    return float(np.mean(diffs)), diffs
 
 
 def find_extrema(angles):

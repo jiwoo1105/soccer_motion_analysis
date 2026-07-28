@@ -41,50 +41,53 @@ def score_tier(stem):
 
 
 def _rotation_metrics(pose_frames, valid_touch_frames):
-    """2D 폭 기반 어깨/골반 진폭과 비율
+    """2D 폭 기반 어깨/골반 진폭
 
-    평활·드리프트 제거는 영상 전체에서 하고, 극값 선택만 터치 윈도우로 제한한다.
-    짧은 구간만 잘라서 savgol을 걸면 경계에서 가짜 스윙이 생기기 때문이다.
+    진폭은 **인접 터치 윈도우 중앙값의 차이**로 잰다. savgol(41)+드리프트(81)
+    경로는 스윙 대역에서 진폭을 8~43%만 통과시키고 감쇠율이 템포에 따라 널뛰어서,
+    진폭을 직접 채점할 때 그 왜곡이 그대로 점수에 들어간다.
+    (자세한 근거는 rotation_signal.amplitude_touch_median 참조)
+
+    비율(어깨/골반)은 기각됐다 — 어깨-골반 상관이 0.94라 어깨 ≈ 상수×골반이 되어
+    비율에는 신호가 상쇄되고 노이즈/골반진폭만 남는다. 같은 3점대인 3-1(1.15)과
+    3-2(0.36)가 정반대로 갈린 것이 그 증상이다. 참고용으로만 남긴다.
     """
     frames = [pf.frame_number for pf in pose_frames]
     frame_to_idx = {f: i for i, f in enumerate(frames)}
-    n = len(frames)
 
     sh_w = np.array([abs(pf.landmarks[12][0] - pf.landmarks[11][0]) * pf.frame_width
                      for pf in pose_frames])
     pe_w = np.array([abs(pf.landmarks[24][0] - pf.landmarks[23][0]) * pf.frame_width
                      for pf in pose_frames])
 
-    sh_ang, sh_bad, sh_run = rs.clean_angle(rs.width_to_angle(sh_w))
-    pe_ang, pe_bad, pe_run = rs.clean_angle(rs.width_to_angle(pe_w))
+    # 진폭용: 스파이크만 제거하고 평활은 걸지 않는다
+    sh_raw, sh_bad, sh_run = rs.despike(rs.width_to_angle(sh_w))
+    pe_raw, pe_bad, pe_run = rs.despike(rs.width_to_angle(pe_w))
 
     centers = [frame_to_idx[f] for f in valid_touch_frames if f in frame_to_idx]
-    allowed = rs.touch_window_indices(centers, n, WINDOW) if centers else None
+    sh_amp, sh_diffs = rs.amplitude_touch_median(sh_raw, centers, WINDOW)
+    pe_amp, pe_diffs = rs.amplitude_touch_median(pe_raw, centers, WINDOW)
 
-    sh_amp, sh_ext = rs.amplitude(sh_ang, allowed)
-    pe_amp, pe_ext = rs.amplitude(pe_ang, allowed)
+    # 참고용 — 기각된 비율 지표. 채점에는 쓰지 않는다.
     ratio = sh_amp / pe_amp if (sh_amp and pe_amp and pe_amp > 0) else None
 
-    # 참고용 — 터치 윈도우 제한 없이 영상 전체에서 잰 값
-    sh_amp_all, _ = rs.amplitude(sh_ang)
-    pe_amp_all, _ = rs.amplitude(pe_ang)
-    ratio_all = (sh_amp_all / pe_amp_all
-                 if (sh_amp_all and pe_amp_all and pe_amp_all > 0) else None)
+    # 교차상관(Phase 1 게이트)은 드리프트를 걷어낸 신호로 재야 의미가 있다
+    sh_dt, _, _ = rs.clean_angle(rs.width_to_angle(sh_w))
+    pe_dt, _, _ = rs.clean_angle(rs.width_to_angle(pe_w))
 
     return {
+        'shoulder': sh_amp,
+        'pelvis': pe_amp,
         'shoulder_amp': sh_amp,
         'pelvis_amp': pe_amp,
         'ratio': ratio,
-        'shoulder_amp_all': sh_amp_all,
-        'pelvis_amp_all': pe_amp_all,
-        'ratio_all': ratio_all,
+        'shoulder_diffs': sh_diffs,
+        'pelvis_diffs': pe_diffs,
         'shoulder_spikes': int(sh_bad.sum()),
         'pelvis_spikes': int(pe_bad.sum()),
         'shoulder_max_run': int(sh_run),
         'pelvis_max_run': int(pe_run),
-        'cross_corr': rs.max_cross_correlation(sh_ang, pe_ang),
-        'shoulder_extrema': len(sh_ext),
-        'pelvis_extrema': len(pe_ext),
+        'cross_corr': rs.max_cross_correlation(sh_dt, pe_dt),
     }
 
 

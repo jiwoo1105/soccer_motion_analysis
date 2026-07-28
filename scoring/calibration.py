@@ -16,8 +16,16 @@ from pathlib import Path
 
 import numpy as np
 
-METRICS = ('headup', 'trunk', 'ratio')
-METRIC_LABELS = {'headup': '헤드업', 'trunk': '상체각도', 'ratio': '어깨-골반'}
+# 2026-07-29 — 비율(ratio) 지표는 기각되고 어깨·골반 진폭 독립 채점으로 바뀌었다.
+# 어깨-골반 상관이 0.94라 비율에는 신호가 상쇄되고 노이즈만 남는다.
+# 같은 3점대인 3-1(비율 1.15 → 9.7점)과 3-2(0.36 → 0.0점)가 정반대로 갈렸다.
+METRICS = ('headup', 'trunk', 'shoulder', 'pelvis')
+METRIC_LABELS = {
+    'headup': '헤드업',
+    'trunk': '상체각도',
+    'shoulder': '어깨 회전',
+    'pelvis': '골반 회전',
+}
 
 CALIB_PATH = Path('output/calibration.json')
 REFERENCE_KEYWORD = '기준'
@@ -81,12 +89,6 @@ def main():
             print(f"{METRIC_LABELS[m]:<10}{'N/A':>10}")
             continue
         print(f"{METRIC_LABELS[m]:<10}{c['opt']:>10.3f}{c['tau']:>12.3f}{c['std']:>10.3f}")
-
-    # 근거 문서가 어깨-골반 TAU 초기값으로 0.40을 제시했다. 채택본은 2σ이고,
-    # 0.40은 참고값으로만 병기한다. 둘 중 상관이 높은 쪽을 고르는 것은 튜닝이다.
-    r = calib['metrics']['ratio']
-    if r['opt'] is not None:
-        print(f"\n참고 — 어깨-골반 TAU: 채택 2σ={r['tau']:.3f} / 문서 제시값 0.40")
 
     print(f'\n저장: {CALIB_PATH}')
 

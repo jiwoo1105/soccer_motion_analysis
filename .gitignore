@@ -33,3 +33,13 @@ output/
 
 # Environment variables
 .env
+
+# Model weights & external repos (대용량 — 절대 커밋 금지)
+*.pt
+*.pth
+WHAM/
+depth_anything_v2_repo/
+sapiens_inference/
+sam2_checkpoints/
+models/
+yolo*.yaml

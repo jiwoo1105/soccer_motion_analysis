@@ -130,8 +130,8 @@ def make(stems, out_path=OUT_PATH):
     strips = {s: build_strip(s) for s in stems}
 
     rows = len(stems)
-    fig = plt.figure(figsize=(22, 4.6 * rows))
-    gs = fig.add_gridspec(rows, 2, width_ratios=[6, 1], hspace=0.18, wspace=0.02)
+    fig = plt.figure(figsize=(20, 3.9 * rows))
+    gs = fig.add_gridspec(rows, 2, width_ratios=[5.2, 1], hspace=0.22, wspace=0.03)
 
     role = ['레퍼런스', '높은 점수', '낮은 점수']
 
@@ -150,31 +150,35 @@ def make(stems, out_path=OUT_PATH):
         ax.set_title(f"{s}  —  {role[i] if i < len(role) else ''} ({tier})",
                      fontsize=15, fontweight='bold', loc='left', pad=8)
 
-        # 점수 패널
+        # 점수 패널 — 좌표는 전부 axes 비율(0~1). 데이터 좌표를 섞으면
+        # 텍스트가 축 밖으로 나가 그림 전체가 늘어난다.
         axp = fig.add_subplot(gs[i, 1])
+        axp.set_xlim(0, 1)
+        axp.set_ylim(0, 1)
         axp.axis('off')
+        T = axp.transAxes
         f = lambda v, d=1: (f'{v:.{d}f}' if v is not None else 'N/A')
-        y = 0.92
-        for m in METRICS:
-            axp.text(0.04, y, METRIC_LABELS[m], fontsize=13, va='top')
-            axp.text(0.96, y, f"{f(r['scores'][m])}", fontsize=15, va='top',
-                     ha='right', fontweight='bold')
-            y -= 0.15
-            axp.text(0.04, y, f"측정 {f(r['raw'][m], 2)}", fontsize=9,
-                     va='top', color='#666666')
-            y -= 0.13
-        axp.plot([0.04, 0.96], [y + 0.04, y + 0.04], color='#333333', lw=1.2,
-                 transform=axp.transAxes, clip_on=False)
-        y -= 0.06
-        axp.text(0.04, y, '총점', fontsize=15, va='top', fontweight='bold')
-        axp.text(0.96, y, f"{f(r['total'])}", fontsize=20, va='top', ha='right',
-                 fontweight='bold', color=color)
+
+        for j, m in enumerate(METRICS):
+            y = 0.94 - j * 0.20
+            axp.text(0.04, y, METRIC_LABELS[m], fontsize=13, va='top', transform=T)
+            axp.text(0.96, y, f(r['scores'][m]), fontsize=16, va='top',
+                     ha='right', fontweight='bold', transform=T)
+            axp.text(0.04, y - 0.085, f"측정 {f(r['raw'][m], 2)}", fontsize=9,
+                     va='top', color='#666666', transform=T)
+
+        axp.plot([0.04, 0.96], [0.33, 0.33], color='#333333', lw=1.2,
+                 transform=T, clip_on=False)
+        axp.text(0.04, 0.27, '총점', fontsize=15, va='top', fontweight='bold',
+                 transform=T)
+        axp.text(0.96, 0.29, f(r['total']), fontsize=24, va='top', ha='right',
+                 fontweight='bold', color=color, transform=T)
+
+        note = f"유효터치 {r['touch_valid']}/{r['touch_total']}"
         if r['partial']:
-            y -= 0.14
-            axp.text(0.04, y, '⚠ 부분산출', fontsize=9, va='top', color='#cc3333')
-        axp.text(0.04, y - 0.14,
-                 f"유효터치 {r['touch_valid']}/{r['touch_total']}",
-                 fontsize=9, va='top', color='#666666')
+            note += '  ⚠ 부분산출'
+        axp.text(0.04, 0.10, note, fontsize=9, va='top', color='#666666',
+                 transform=T)
 
     fig.suptitle('드리블 3지표 비교 — 레퍼런스 / 높은 점수 / 낮은 점수',
                  fontsize=19, fontweight='bold', y=0.985)

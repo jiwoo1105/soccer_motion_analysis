@@ -3,7 +3,8 @@
 
     헤드업     : 유효 터치 ±8f, head angle mean_range (world_landmarks Y축)
     상체각도   : 전체 프레임, 무릎-엉덩이-어깨 각 평균 (world_landmarks)
-    어깨-골반  : 유효 터치 ±8f, 어깨진폭 / 골반진폭 비율 (2D 폭)
+    어깨·골반  : 영상 전체, z축 회전 진폭 (atan2 → Hampel → savgol
+                 → 드리프트 제거 → find_peaks, 연속 극값 차의 평균)
 
 포즈 추출과 SAM2 공추적은 `scoring.extraction_cache`가 미리 해둔다. 이 모듈은
 캐시만 읽으므로 초 단위로 반복 실행할 수 있다.
@@ -25,6 +26,7 @@ import numpy as np
 from analysis.head_pose_analyzer import HeadPoseAnalyzer
 from analysis.trunk_pose_analyzer import TrunkPoseAnalyzer
 from analysis.ball_motion_analyzer import BallMotionData
+from scoring import rotation_measurements as rm
 from scoring import rotation_signal as rs
 from scoring.extraction_cache import load, is_cached, VIDEOS
 from scoring.touch_filter import filter_touches, touch_quality, WINDOW
@@ -40,54 +42,29 @@ def score_tier(stem):
     return int(m.group(1)) if m else None
 
 
-def _rotation_metrics(pose_frames, valid_touch_frames):
-    """2D 폭 기반 어깨/골반 진폭
+def _rotation_metrics(pose_frames):
+    """어깨/골반 회전 진폭 — 영상에서 직접 계산한다
 
-    진폭은 **인접 터치 윈도우 중앙값의 차이**로 잰다. savgol(41)+드리프트(81)
-    경로는 스윙 대역에서 진폭을 8~43%만 통과시키고 감쇠율이 템포에 따라 널뛰어서,
-    진폭을 직접 채점할 때 그 왜곡이 그대로 점수에 들어간다.
-    (자세한 근거는 rotation_signal.amplitude_touch_median 참조)
+    z축 파이프라인(atan2 → Hampel → savgol → 드리프트 제거 → find_peaks)을
+    매번 돌린다. 확정 측정값 표를 읽어오면 표에 없는 새 영상은 점수가 나오지
+    않는다. 표(`rotation_measurements.ROTATION_AMPLITUDE`)는 이 계산이 어긋나지
+    않는지 확인하는 회귀 테스트용으로만 남겨둔다 — 12편에서 평균 0.07° 일치.
 
-    비율(어깨/골반)은 기각됐다 — 어깨-골반 상관이 0.94라 어깨 ≈ 상수×골반이 되어
-    비율에는 신호가 상쇄되고 노이즈/골반진폭만 남는다. 같은 3점대인 3-1(1.15)과
-    3-2(0.36)가 정반대로 갈린 것이 그 증상이다. 참고용으로만 남긴다.
+    2D 폭 방식을 보류한 이유는 rotation_measurements 모듈 주석 참조.
     """
-    frames = [pf.frame_number for pf in pose_frames]
-    frame_to_idx = {f: i for i, f in enumerate(frames)}
-
-    sh_w = np.array([abs(pf.landmarks[12][0] - pf.landmarks[11][0]) * pf.frame_width
-                     for pf in pose_frames])
-    pe_w = np.array([abs(pf.landmarks[24][0] - pf.landmarks[23][0]) * pf.frame_width
-                     for pf in pose_frames])
-
-    # 진폭용: 스파이크만 제거하고 평활은 걸지 않는다
-    sh_raw, sh_bad, sh_run = rs.despike(rs.width_to_angle(sh_w))
-    pe_raw, pe_bad, pe_run = rs.despike(rs.width_to_angle(pe_w))
-
-    centers = [frame_to_idx[f] for f in valid_touch_frames if f in frame_to_idx]
-    sh_amp, sh_diffs = rs.amplitude_touch_median(sh_raw, centers, WINDOW)
-    pe_amp, pe_diffs = rs.amplitude_touch_median(pe_raw, centers, WINDOW)
-
-    # 참고용 — 기각된 비율 지표. 채점에는 쓰지 않는다.
-    ratio = sh_amp / pe_amp if (sh_amp and pe_amp and pe_amp > 0) else None
-
-    # 교차상관(Phase 1 게이트)은 드리프트를 걷어낸 신호로 재야 의미가 있다
-    sh_dt, _, _ = rs.clean_angle(rs.width_to_angle(sh_w))
-    pe_dt, _, _ = rs.clean_angle(rs.width_to_angle(pe_w))
+    wl = np.array([pf.world_landmarks for pf in pose_frames])
+    sh_amp, sh_spikes, sh_run, sh_ext = rs.measure(wl, 11, 12)
+    pe_amp, pe_spikes, pe_run, pe_ext = rs.measure(wl, 23, 24)
 
     return {
         'shoulder': sh_amp,
         'pelvis': pe_amp,
-        'shoulder_amp': sh_amp,
-        'pelvis_amp': pe_amp,
-        'ratio': ratio,
-        'shoulder_diffs': sh_diffs,
-        'pelvis_diffs': pe_diffs,
-        'shoulder_spikes': int(sh_bad.sum()),
-        'pelvis_spikes': int(pe_bad.sum()),
+        'shoulder_spikes': int(sh_spikes),
+        'pelvis_spikes': int(pe_spikes),
         'shoulder_max_run': int(sh_run),
         'pelvis_max_run': int(pe_run),
-        'cross_corr': rs.max_cross_correlation(sh_dt, pe_dt),
+        'shoulder_extrema': sh_ext,
+        'pelvis_extrema': pe_ext,
     }
 
 
@@ -118,7 +95,7 @@ def compute(stem, max_foot_dist=MAX_FOOT_DIST):
         if head_data and head_data.touch_window_mean_range is not None:
             headup = float(head_data.touch_window_mean_range)
 
-    rot = _rotation_metrics(pose_frames, [t.frame_number for t in valid])
+    rot = _rotation_metrics(pose_frames)
 
     return {
         'video': stem,
@@ -141,7 +118,8 @@ def load_all(max_foot_dist=MAX_FOOT_DIST):
     out = []
     for v in VIDEOS:
         stem = Path(v).stem
-        if not is_cached(stem):
+        # 7-3은 좌우 랜드마크 스왑으로 복구 불가 — 모든 지표에서 제외
+        if stem in rm.EXCLUDED or not is_cached(stem):
             continue
         out.append(compute(stem, max_foot_dist))
     return out
@@ -149,33 +127,15 @@ def load_all(max_foot_dist=MAX_FOOT_DIST):
 
 def print_table(results):
     f = lambda v, d=2: (f'{v:.{d}f}' if v is not None else 'N/A')
-    print(f"\n{'='*92}")
+    print(f"\n{'='*74}")
     print(f"{'영상':<14}{'점수대':>5}{'헤드업':>9}{'상체각':>9}"
-          f"{'어깨진폭':>9}{'골반진폭':>9}{'비율':>8}{'터치':>9}{'교차상관':>9}")
-    print('-' * 92)
+          f"{'어깨진폭':>9}{'골반진폭':>9}{'터치':>9}")
+    print('-' * 74)
     for r in sorted(results, key=lambda r: (r['tier'] is None, r['tier'] or 0)):
         print(f"{r['video']:<14}{r['tier'] if r['tier'] else '기준':>5}"
               f"{f(r['headup'],1):>9}{f(r['trunk'],1):>9}"
-              f"{f(r['shoulder_amp'],1):>9}{f(r['pelvis_amp'],1):>9}"
-              f"{f(r['ratio']):>8}"
-              f"{str(r['touch_valid'])+'/'+str(r['touch_total']):>9}"
-              f"{f(r['cross_corr']):>9}")
-
-
-def phase1_gate(results):
-    """어깨-골반 교차상관 평균 — 0.9 이상이면 몸통 분리 미관측"""
-    corrs = [r['cross_corr'] for r in results if r['cross_corr'] is not None]
-    if not corrs:
-        return None
-    mean_corr = float(np.mean(corrs))
-    print(f"\n[Phase 1 게이트] 어깨-골반 교차상관 평균 = {mean_corr:.3f} (n={len(corrs)})")
-    for r in sorted(results, key=lambda r: -r['cross_corr']):
-        print(f"    {r['video']:<14}{r['cross_corr']:.3f}")
-    if mean_corr >= 0.9:
-        print('  ⚠ 0.9 이상 — 이 동작에서 몸통 분리가 관측되지 않음. 지표 재검토 필요.')
-    else:
-        print('  0.9 미만 — Phase 2 진행 가능')
-    return mean_corr
+              f"{f(r['shoulder'],1):>9}{f(r['pelvis'],1):>9}"
+              f"{str(r['touch_valid'])+'/'+str(r['touch_total']):>9}")
 
 
 def main():
@@ -189,13 +149,6 @@ def main():
         return
 
     print_table(results)
-    phase1_gate(results)
-
-    for r in results:
-        for part in ('shoulder', 'pelvis'):
-            if r[f'{part}_max_run'] >= 6:
-                print(f"  ⚠ {r['video']} {part}: 연속 이상치 {r[f'{part}_max_run']}프레임 "
-                      f"— Hampel 윈도우 과반 오염, 놓친 스파이크 가능")
 
 
 if __name__ == '__main__':

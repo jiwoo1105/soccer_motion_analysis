@@ -13,10 +13,39 @@
 가중치는 Phase 4에서 `|Spearman ρ|` 순위대로 0.5 / 0.3 / 0.2 세 고정값을 배정한다.
 라벨에 맞춰 연속값을 fitting하지 않는다 — n=11에서 3개 가중치 학습은 과적합이다.
 """
+import numpy as np
+
 from scoring.calibration import METRICS, METRIC_LABELS, load
 
-# Phase 4에서 확정. 확정 전에는 동등 가중으로 동작한다.
-DEFAULT_WEIGHTS = {m: 1.0 / len(METRICS) for m in METRICS}
+# 채점 단위는 지표가 아니라 **그룹**이다.
+#
+# 어깨와 골반은 교차상관 0.93으로 사실상 같은 신호다. 네 지표를 동등 가중하면
+# 총점의 절반을 회전이 차지해 같은 정보가 두 번 계산된다. 그래서 두 지표를
+# 한 그룹으로 묶어 평균을 내고, 그룹 단위로 1/3씩 가중한다.
+#
+# 앵커(opt)는 어깨 27.19° / 골반 24.51°로 서로 달라서 그대로 분리해 둔다.
+# 원시값을 먼저 평균하면 두 앵커가 섞여 의미가 사라진다.
+# 점수를 낸 뒤 평균해야 각자의 기준에서 잰 편차가 보존된다.
+GROUPS = (
+    ('headup', '헤드업', ('headup',)),
+    ('trunk', '상체각도', ('trunk',)),
+    ('rotation', '어깨-골반', ('shoulder', 'pelvis')),
+)
+
+# Phase 3 검증(validate_scoring.py, n=10) 결과의 |Spearman ρ| 순위로 배정했다.
+# 0.5 / 0.3 / 0.2 세 고정값만 쓴다 — 연속값 fitting은 n=10에서 과적합이다.
+#
+#   상체각도   ρ = +0.70 (p=0.023), 순서일치 76%, 단조성 만족   → 0.5
+#   헤드업     ρ = +0.26 (p=0.572), 순서일치 42%                → 0.3
+#   어깨-골반  ρ = −0.05 (p=0.893), 순서일치 49%                → 0.2
+#
+# 등급을 실제로 재는 건 상체각도 하나뿐이다. 헤드업과 어깨-골반은 무작위 수준이라
+# 총점에 남겨두되 기여를 최소화했다. 숫자를 맞추려고 손으로 조정하지 마라.
+DEFAULT_WEIGHTS = {
+    'trunk': 0.5,
+    'headup': 0.3,
+    'rotation': 0.2,
+}
 
 
 def map_score(x, opt, tau):
@@ -27,9 +56,10 @@ def map_score(x, opt, tau):
 
 
 def score_video(raw, calib=None, weights=None):
-    """원시값 dict → 지표별 점수 + 총점
+    """원시값 dict → 지표별 점수 + 그룹 점수 + 총점
 
-    헤드업이 N/A면 남은 지표의 가중치를 재정규화하고 partial 플래그를 세운다.
+    산출 불가한 그룹이 있으면 남은 그룹의 가중치를 재정규화하고
+    partial 플래그를 세운다.
     """
     calib = calib or load()
     weights = weights or DEFAULT_WEIGHTS
@@ -39,11 +69,16 @@ def score_video(raw, calib=None, weights=None):
         c = calib['metrics'].get(m, {})
         scores[m] = map_score(raw.get(m), c.get('opt'), c.get('tau'))
 
-    available = {m: w for m, w in weights.items() if scores.get(m) is not None}
+    group_scores = {}
+    for key, _, members in GROUPS:
+        vals = [scores[m] for m in members if scores.get(m) is not None]
+        group_scores[key] = float(np.mean(vals)) if vals else None
+
+    available = {k: w for k, w in weights.items() if group_scores.get(k) is not None}
     total_weight = sum(available.values())
 
     if total_weight > 0:
-        total = sum(scores[m] * w for m, w in available.items()) / total_weight
+        total = sum(group_scores[k] * w for k, w in available.items()) / total_weight
     else:
         total = None
 
@@ -51,9 +86,10 @@ def score_video(raw, calib=None, weights=None):
         'video': raw.get('video'),
         'tier': raw.get('tier'),
         'scores': scores,
+        'group_scores': group_scores,
         'total': total,
-        'partial': len(available) < len(METRICS),
-        'missing': [m for m in METRICS if scores.get(m) is None],
+        'partial': len(available) < len(GROUPS),
+        'missing': [k for k, _, _ in GROUPS if group_scores.get(k) is None],
         'touch_quality': raw.get('touch_quality'),
         'touch_valid': raw.get('touch_valid'),
         'touch_total': raw.get('touch_total'),
@@ -64,19 +100,23 @@ def score_video(raw, calib=None, weights=None):
 def format_report(result, calib=None):
     """CLI 출력용 문자열"""
     calib = calib or load()
-    s, raw = result['scores'], result['raw']
+    s, g, raw = result['scores'], result['group_scores'], result['raw']
     f = lambda v, d=1: (f'{v:.{d}f}' if v is not None else 'N/A')
 
-    lines = [result['video'], '─' * 46]
-    for m in METRICS:
-        opt = calib['metrics'].get(m, {}).get('opt')
-        detail = f"(측정 {f(raw[m],2)}, 기준 {f(opt,2)})"
+    lines = [result['video'], '─' * 52]
+    for key, label, members in GROUPS:
         extra = ''
-        if m == 'headup':
-            extra = f"  유효터치 {result['touch_valid']}/{result['touch_total']}"
-        lines.append(f"{METRIC_LABELS[m]:<9}{f(s[m]):>6} / 10   {detail}{extra}")
-    lines.append('─' * 46)
+        if len(members) == 1:
+            m = members[0]
+            opt = calib['metrics'].get(m, {}).get('opt')
+            extra = f"(측정 {f(raw[m],2)}, 기준 {f(opt,2)})"
+        else:
+            extra = '(' + ', '.join(
+                f"{METRIC_LABELS[m]} {f(s[m])}" for m in members) + ')'
+        if key in ('headup', 'rotation'):
+            extra += f"  유효터치 {result['touch_valid']}/{result['touch_total']}"
+        lines.append(f"{label:<9}{f(g[key]):>6} / 10   {extra}")
+    lines.append('─' * 52)
     lines.append(f"{'총점':<9}{f(result['total']):>6} / 10"
                  + ('   ⚠ 부분산출' if result['partial'] else ''))
-    lines.append('⚠ 어깨-골반 비율은 3점대 판별에만 검증됨 (5~9점대 구분 불가)')
     return '\n'.join(lines)

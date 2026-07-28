@@ -27,7 +27,7 @@ import matplotlib.pyplot as plt
 from scoring.extraction_cache import load, is_cached, VIDEOS
 from scoring.overlay import annotate
 from scoring import raw_metrics, calibration
-from scoring.score_mapper import score_video
+from scoring.score_mapper import score_video, GROUPS
 from scoring.calibration import METRICS, METRIC_LABELS
 
 plt.rcParams['font.family'] = 'AppleGothic'
@@ -159,12 +159,18 @@ def make(stems, out_path=OUT_PATH):
         T = axp.transAxes
         f = lambda v, d=1: (f'{v:.{d}f}' if v is not None else 'N/A')
 
-        for j, m in enumerate(METRICS):
-            y = 0.94 - j * 0.155
-            axp.text(0.04, y, METRIC_LABELS[m], fontsize=12, va='top', transform=T)
-            axp.text(0.96, y, f(r['scores'][m]), fontsize=15, va='top',
+        for j, (key, label, members) in enumerate(GROUPS):
+            y = 0.94 - j * 0.20
+            axp.text(0.04, y, label, fontsize=12.5, va='top', transform=T)
+            axp.text(0.96, y, f(r['group_scores'][key]), fontsize=15, va='top',
                      ha='right', fontweight='bold', transform=T)
-            axp.text(0.04, y - 0.068, f"측정 {f(r['raw'][m], 2)}", fontsize=8.5,
+            if len(members) == 1:
+                sub = f"측정 {f(r['raw'][members[0]], 2)}"
+            else:
+                # 그룹 점수가 어디서 왔는지 보이게 구성 지표를 함께 적는다
+                sub = ' / '.join(
+                    f"{METRIC_LABELS[m]} {f(r['scores'][m])}" for m in members)
+            axp.text(0.04, y - 0.075, sub, fontsize=8.5,
                      va='top', color='#666666', transform=T)
 
         axp.plot([0.04, 0.96], [0.33, 0.33], color='#333333', lw=1.2,
@@ -180,7 +186,7 @@ def make(stems, out_path=OUT_PATH):
         axp.text(0.04, 0.10, note, fontsize=9, va='top', color='#666666',
                  transform=T)
 
-    fig.suptitle(f'드리블 {len(METRICS)}지표 비교 — 레퍼런스 / 높은 점수 / 낮은 점수',
+    fig.suptitle(f'드리블 {len(GROUPS)}지표 비교 — 레퍼런스 / 높은 점수 / 낮은 점수',
                  fontsize=19, fontweight='bold', y=0.985)
     fig.text(0.5, 0.012,
              '노란 화살표 = 헤드업(어깨중앙→눈중앙)   파란 호 = 상체각도(무릎-엉덩이-어깨)   '

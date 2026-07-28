@@ -1,16 +1,16 @@
 # -*- coding: utf-8 -*-
-"""어깨/골반 2D 폭 → 회전각 → 진폭 (Phase 1 신호원)
+"""어깨/골반 회전각 처리 파이프라인 (z축)
 
-기존 `extract_rotation_score.py`는 world landmark의 z축으로 atan2(vz, vx)를 썼는데,
-z는 촬영 각도에 따라 눌린다(8점대 두 영상이 어깨·골반 모두 최저권으로 나온 원인).
-그래서 image landmark의 2D 폭만 쓴다.
+확정 측정값은 `scoring/rotation_measurements.py`에 있다. 이 모듈은 그 값을
+어떻게 얻었는지 기록하고 재현할 수 있게 남겨둔 것이다 — 채점 경로에서는
+표를 직접 읽으므로 매 실행마다 돌지 않는다.
 
-처리 순서는 기존 파이프라인을 유지한다. 이상치 제거를 드리프트 제거보다 먼저
-해야 한다 — 스파이크가 남은 채로 baseline을 뽑으면 주변까지 오염된다.
+    atan2(vz, vx) → unwrap → Hampel 이상치 제거 → 선형 보간 → savgol(41,2)
+      → 드리프트 제거(savgol 81,2) → find_peaks(distance=10, prominence=3)
+      → 연속 극값 차의 평균 = 진폭
 
-    폭 → 각도 → unwrap → Hampel 이상치 제거 → 선형 보간 → savgol(41,2)
-       → 드리프트 제거(savgol 81,2) → find_peaks(distance=10, prominence=3)
-       → 연속 극값 차의 평균 = 진폭
+이상치 제거를 드리프트 제거보다 **먼저** 해야 한다. 스파이크가 남은 채로
+baseline을 뽑으면 주변까지 오염된다.
 """
 import numpy as np
 from scipy.signal import savgol_filter, find_peaks
@@ -24,24 +24,18 @@ PEAK_PROMINENCE = 3
 EDGE_GUARD = 5          # 창이 잘리는 앞뒤 프레임은 이상치 판정에서 제외
 
 
-def width_to_angle(width):
-    """2D 폭 → 회전각 (°)
+def z_axis_angle(world_landmarks, left_idx, right_idx):
+    """world landmark z축 기반 회전각 (°)
 
-    어깨선이 카메라와 정면일 때 화면상 폭이 최대이고, 몸을 돌릴수록 폭이
-    cos(θ)에 비례해 줄어든다. 따라서 θ = arccos(w / w_max) 다.
-
-    w_max는 최대값 대신 **95 백분위수**를 쓴다. 랜드마크가 한 프레임 튀어서
-    폭이 과대추정되면 그 뒤 전 구간의 각도가 통째로 밀리기 때문이다.
-
-    한계 — 이 변환은 **부호를 잃는다.** 좌회전과 우회전이 모두 양수 θ로 접힌다.
-    회전 방향은 구분할 수 없고 회전량(진폭)만 측정된다. 이번 지표는 진폭 비율만
-    쓰므로 문제되지 않지만, 방향이 필요한 지표에는 이 신호를 쓰면 안 된다.
+    Args:
+        world_landmarks: (n_frames, 33, 3)
+        left_idx, right_idx: 어깨는 (11, 12), 골반은 (23, 24)
     """
-    w = np.asarray(width, dtype=float)
-    w_max = float(np.percentile(w, 95))
-    if w_max <= 0:
-        return np.zeros_like(w)
-    return np.degrees(np.arccos(np.clip(w / w_max, 0.0, 1.0)))
+    wl = np.asarray(world_landmarks)
+    vx = wl[:, right_idx, 0] - wl[:, left_idx, 0]
+    vz = wl[:, right_idx, 2] - wl[:, left_idx, 2]
+    raw = np.degrees(np.arctan2(vz, vx))
+    return np.degrees(np.unwrap(np.radians(raw)))
 
 
 def detect_spikes_hampel(angles, thresh=SPIKE_THRESH, half_win=HAMPEL_HALF_WIN):
@@ -49,7 +43,7 @@ def detect_spikes_hampel(angles, thresh=SPIKE_THRESH, half_win=HAMPEL_HALF_WIN):
 
     중앙값 기준이라 윈도우 안에 스파이크가 있어도 오염되지 않고, 기준이 실제
     움직임을 따라가므로 빠른 회전 중에도 오탐이 없다.
-    (avg / lastvalid / old 방식은 선행 분석에서 기각됐다.)
+    avg / lastvalid / old 방식은 선행 분석에서 기각됐다.
 
     Returns:
         bad: bool 배열
@@ -69,7 +63,6 @@ def detect_spikes_hampel(angles, thresh=SPIKE_THRESH, half_win=HAMPEL_HALF_WIN):
     bad[:EDGE_GUARD] = False
     bad[-EDGE_GUARD:] = False
 
-    # 최장 연속 구간 길이
     max_run = run = 0
     for flag in bad:
         run = run + 1 if flag else 0
@@ -78,41 +71,20 @@ def detect_spikes_hampel(angles, thresh=SPIKE_THRESH, half_win=HAMPEL_HALF_WIN):
     return bad, max_run
 
 
-def despike(angles):
-    """이상치 제거 → 선형 보간. 평활도 드리프트 제거도 하지 않는다.
-
-    진폭 측정에는 이 단계까지만 쓴다. savgol을 걸면 스윙 대역에서 진폭이
-    깎이기 때문이다 (`amplitude_touch_median` 주석 참조).
+def clean_angle(angles):
+    """이상치 제거 → 보간 → savgol 평활 → 드리프트 제거
 
     Returns:
-        cleaned, bad, max_run
+        detrended, bad, max_run
     """
     a = np.asarray(angles, dtype=float)
-
-    # unwrap: 2D 폭 기반 각도는 0~90° 범위라 ±180° 경계를 넘지 않으므로
-    # 사실상 no-op다. z축 파이프라인과 순서를 맞추기 위해 남겨둔다.
-    a = np.degrees(np.unwrap(np.radians(a)))
+    n = len(a)
 
     bad, max_run = detect_spikes_hampel(a)
     cleaned = a.copy()
     good = np.where(~bad)[0]
     if len(good) >= 2 and bad.any():
         cleaned[bad] = np.interp(np.where(bad)[0], good, cleaned[good])
-
-    return cleaned, bad, max_run
-
-
-def clean_angle(angles):
-    """despike → savgol 평활 → 드리프트 제거
-
-    교차상관(Phase 1 게이트)처럼 저주파 드리프트를 걷어내야 하는 용도에만 쓴다.
-    **진폭 측정에는 쓰지 마라** — savgol(41)이 스윙 대역에서 진폭을 깎는다.
-
-    Returns:
-        detrended, bad, max_run
-    """
-    cleaned, bad, max_run = despike(angles)
-    n = len(cleaned)
 
     win = min(SAVGOL_WIN, n if n % 2 == 1 else n - 1)
     smoothed = savgol_filter(cleaned, win, 2) if win >= 3 else cleaned
@@ -123,77 +95,16 @@ def clean_angle(angles):
     return smoothed - baseline, bad, max_run
 
 
-def amplitude_touch_median(angles, centers, window=8):
-    """인접 터치 윈도우 중앙값의 차이로 진폭을 정의 (채택본)
-
-        진폭 = mean(|median(터치ᵢ₊₁ ±window) − median(터치ᵢ ±window)|)
-
-    savgol(41,2) + 드리프트 제거(81,2) 경로를 쓰지 않는 이유:
-    그 경로는 스윙 주기 20~40프레임 대역에서 진폭의 8~43%만 통과시키고,
-    감쇠율이 주기에 따라 비단조로 널뛴다(20f→22%, 25f→8%, 30f→43%).
-    같은 크기로 돌아도 템포가 다르면 다른 진폭이 나온다는 뜻이다.
-    비율 지표일 때는 분자·분모가 같이 깎여 부분 상쇄됐지만, 진폭을 직접
-    채점하면 이 감쇠가 그대로 점수에 들어간다.
-
-    중앙값 차이 방식의 장점:
-      - 터치 정렬이라 헤드업과 설계가 통일된다
-      - 필터를 안 거치므로 감쇠가 없다
-      - 인접 터치끼리 비교하므로 저주파 드리프트가 자동 상쇄된다
-      - 윈도우 17프레임의 중앙값이라 잔여 지터에 강건하다
-
-    Args:
-        angles: despike까지만 거친 각도 시계열
-        centers: 유효 터치의 인덱스 (시간순)
-        window: 터치 전후 프레임 수
-
-    Returns:
-        (진폭, 구간별 차이 리스트). 터치가 2개 미만이면 (None, []).
-    """
-    a = np.asarray(angles, dtype=float)
-    n = len(a)
-    centers = sorted(int(c) for c in centers)
-    if len(centers) < 2:
-        return None, []
-
-    medians = []
-    for c in centers:
-        lo, hi = max(0, c - window), min(n, c + window + 1)
-        seg = a[lo:hi]
-        if len(seg) == 0:
-            return None, []
-        medians.append(float(np.median(seg)))
-
-    diffs = [abs(medians[i + 1] - medians[i]) for i in range(len(medians) - 1)]
-    return float(np.mean(diffs)), diffs
-
-
-def find_extrema(angles):
-    """극대 + 극소를 시간순으로 반환"""
-    a = np.asarray(angles, dtype=float)
-    peaks, _ = find_peaks(a, distance=PEAK_DISTANCE, prominence=PEAK_PROMINENCE)
-    valleys, _ = find_peaks(-a, distance=PEAK_DISTANCE, prominence=PEAK_PROMINENCE)
-    return sorted(list(peaks) + list(valleys))
-
-
-def amplitude(angles, allowed=None):
+def amplitude(angles):
     """연속 극값 차의 평균 = 회전 진폭 (°)
-
-    Args:
-        angles: 드리프트 제거된 각도 시계열
-        allowed: 허용 인덱스 집합. None이면 전체 구간.
 
     Returns:
         (진폭, 극값 인덱스 리스트). 극값이 2개 미만이면 (None, ext).
-
-    주의 — 평활·드리프트 제거는 반드시 **영상 전체**에서 하고, 구간 제한은
-    극값을 고르는 단계에서만 적용한다. 짧은 구간만 잘라서 savgol을 걸면
-    경계에서 가짜 스윙이 생긴다.
     """
     a = np.asarray(angles, dtype=float)
-    ext = find_extrema(a)
-
-    if allowed is not None:
-        ext = [e for e in ext if e in allowed]
+    peaks, _ = find_peaks(a, distance=PEAK_DISTANCE, prominence=PEAK_PROMINENCE)
+    valleys, _ = find_peaks(-a, distance=PEAK_DISTANCE, prominence=PEAK_PROMINENCE)
+    ext = sorted(list(peaks) + list(valleys))
 
     if len(ext) < 2:
         return None, ext
@@ -202,25 +113,9 @@ def amplitude(angles, allowed=None):
     return float(np.mean(diffs)), ext
 
 
-def touch_window_indices(centers, n, window=8):
-    """터치 중심 인덱스들의 ±window 합집합"""
-    allowed = set()
-    for c in centers:
-        allowed.update(range(max(0, c - window), min(n, c + window + 1)))
-    return allowed
-
-
-def max_cross_correlation(x, y):
-    """두 시계열의 정규화 교차상관 최대값 (Phase 1 게이트용)
-
-    어깨와 골반이 사실상 같은 신호면 1에 가깝다. 평균이 0.9 이상이면
-    이 동작에서 몸통 분리가 관측되지 않는다는 뜻이다.
-    """
-    a = np.asarray(x, dtype=float)
-    b = np.asarray(y, dtype=float)
-    a = a - a.mean()
-    b = b - b.mean()
-    denom = np.sqrt((a ** 2).sum() * (b ** 2).sum())
-    if denom == 0:
-        return 0.0
-    return float(np.max(np.correlate(a, b, mode='full')) / denom)
+def measure(world_landmarks, left_idx, right_idx):
+    """전체 파이프라인 — 확정 측정값을 재현할 때 쓴다"""
+    angle = z_axis_angle(world_landmarks, left_idx, right_idx)
+    detrended, bad, max_run = clean_angle(angle)
+    amp, ext = amplitude(detrended)
+    return amp, bad.sum(), max_run, len(ext)

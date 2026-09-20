@@ -1,7 +1,10 @@
-opencv-python>=4.8.0
-mediapipe>=0.10.0
-numpy>=1.24.0
-ultralytics>=8.0.0
-scipy>=1.10.0
-matplotlib>=3.7.0
-tqdm>=4.65.0
+# Existing mp.solutions.pose extraction / legacy visualization (Python 3.9).
+# Numeric evaluation and current ROI inference have separate requirements files.
+mediapipe==0.10.21
+numpy>=1.26,<2
+opencv-python==4.11.0.86
+opencv-contrib-python==4.11.0.86
+ultralytics==8.3.224
+scipy>=1.13,<1.14
+matplotlib>=3.7,<3.10
+tqdm>=4.65,<5

@@ -1,284 +1,115 @@
-<div align="center">
+# Soccer Dribble Motion Analysis
 
-# ⚽ Soccer Dribble Motion Analysis
+**카메라 한 대로 촬영한 축구 드리블 영상에서 자세와 움직임을 비교하는 연구 프로젝트입니다.**
 
-**단안 카메라 기반 축구 드리블 동작 정량 평가 시스템**
+MediaPipe로 추출한 관절과 YOLO로 검출한 공을 이용해 **헤드업, 상체 각도, 어깨·골반 움직임**을 측정합니다. 현재는 인,인 드리블 13편을 검토하고, 다른 사람을 추적한 2편을 제외한 11편을 비교했습니다. 총점은 세 항목을 각각 **1/3**씩 반영합니다.
 
-[![Python](https://img.shields.io/badge/Python-3.9%20%2B%203.11-blue.svg)](https://www.python.org/)
-[![MediaPipe](https://img.shields.io/badge/MediaPipe-0.10-green.svg)](https://mediapipe.dev/)
-[![SAM2](https://img.shields.io/badge/SAM2-Meta-purple.svg)](https://github.com/facebookresearch/sam2)
-[![YOLOv8](https://img.shields.io/badge/YOLOv8-Ultralytics-orange.svg)](https://github.com/ultralytics/ultralytics)
+[전체 영상 결과](experiments/2026-09-20/README.md) · [계산식과 검증 범위](docs/current_evaluation.md) · [과거 실험 안내](docs/legacy_experiments.md)
 
-</div>
+## 무엇을 바꿨나
 
----
+기존에는 어깨와 골반이 **각각 얼마나 크게 돌아갔는지**를 측정했습니다. 그런데 낮은 등급 영상에서도 큰 움직임이 나타나 기준 영상과 값이 겹쳤습니다. 움직임의 크기만으로는 드리블에 필요한 상체 사용을 충분히 설명하기 어려웠습니다.
 
-## 📖 목차
+그래서 **어깨선과 골반선의 관계가 동작 중 어떻게 바뀌는지**를 측정하도록 바꿨습니다. 화면에서 두 선이 나란해졌다가 서로 다른 방향으로 기울어지는 변화를 계산하고, 몸통 크기로 정규화합니다. 이 항목은 추정된 깊이값이나 공 검출 결과 없이 계산합니다.
 
-- [프로젝트 소개](#-프로젝트-소개)
-- [시스템 아키텍처](#-시스템-아키텍처)
-- [사용 관절 랜드마크](#-사용-관절-랜드마크)
-- [평가 지표](#-평가-지표)
-- [점수 산출](#-점수-산출)
-- [신호 전처리](#-신호-전처리)
-- [설치 및 실행 절차](#-설치-및-실행-절차)
-- [프로젝트 구조](#-프로젝트-구조)
-- [참고 문서](#-참고-문서)
+| 항목 | 현재 측정 방법 | 입력 |
+|---|---|---|
+| 헤드업 | 공 방향 전환 후보 주변에서 머리 방향의 변화 폭을 평균 | 추정 3D 관절 + 발목 주변 공 검출 |
+| 상체 각도 | 무릎–골반–어깨 각도의 좌우 평균을 영상 전체에서 평균 | 추정 3D 관절 |
+| 어깨·골반 | 두 선의 상대 정렬이 변하는 폭 | 영상의 2D 관절 |
 
----
+새 어깨·골반 지표에서 3점 영상은 0.045–0.048, 기준 영상은 0.081–0.085로 차이가 나타났습니다. 등급 영상 9편의 순위 상관은 **0.890**입니다. 같은 자료에서 여러 방법을 비교한 탐색 결과이며, 별도 영상에서 검증된 채점 정확도를 뜻하지 않습니다. 5점과 3점의 겹침, 7점과 8점의 역전도 남아 있습니다.
 
-## 🎯 프로젝트 소개
+![어깨·골반 상대 정렬 변화량과 기준 대비 실험점수](docs/images/relative_alignment_results.png)
 
-스마트폰 **1대**로 촬영한 드리블 영상만으로 선수의 **상체 각도**, **헤드업**, **어깨·골반 회전**을
-자동 측정하고, 항목별 점수(0~10)와 총점을 산출하는 시스템입니다.
+그림 왼쪽은 지표값을 100배로 표시한 값, 오른쪽은 기준 영상 대비 크기를 0–10으로 환산한 값입니다. 실제 3D 회전각이나 반응 속도가 아닙니다.
 
-- 기존 드리블 평가는 코치의 **주관적 판단**에 의존
-- 모션 캡처 장비는 **비용이 높고** 현장 적용이 어려움
-- **카메라 1대 + AI**만으로 정량적 자세 평가 가능
+## 현재 실행 흐름
 
-| 스켈레톤 + 공 추적 오버레이 |
-|:---:|
-| <img src="docs/images/skeleton_demo.png" width="360"> |
-
----
-
-## 🏗 시스템 아키텍처
-
-![시스템 아키텍처](docs/images/architecture.png)
-
-| 단계 | 모듈 | 역할 |
-|:---:|:---|:---|
-| (1) 관절 좌표 추출 | **MediaPipe Pose** (model_complexity=2) | 33개 관절의 이미지 2D + 월드 3D 좌표 |
-| (2) 공 추적 | **YOLOv8** → **SAM2** | YOLO로 초기 공 검출 → SAM2 마스크 기반 전체 프레임 추적 |
-| (3) 터치 시점 감지 | 방향 전환 + 발 근접도 | 공 X 궤적의 극값 + 발목-공 거리로 터치 프레임 판별 |
-| (4) 평가지표 산출 | 상체 각도 · 헤드업 · 어깨/골반 회전 | 터치 프레임 기준으로 3개 지표 계산 → 점수화 |
-
----
-
-## 🦴 사용 관절 랜드마크
-
-![MediaPipe 랜드마크](docs/images/landmarks.png)
-
-본 연구에서 사용하는 MediaPipe Pose 랜드마크:
-
-| 인덱스 | 관절 | 사용 지표 |
-|:---:|:---|:---|
-| 2, 5 | 왼눈 · 오른눈 | 헤드업 (어깨→눈 벡터) |
-| 11, 12 | 왼어깨 · 오른어깨 | 헤드업, 상체 각도, **어깨 회전** |
-| 23, 24 | 왼엉덩이 · 오른엉덩이 | 상체 각도(꼭짓점), **골반 회전** |
-| 25, 26 | 왼무릎 · 오른무릎 | 상체 각도 |
-| 27, 28 | 왼발목 · 오른발목 | 터치 감지 (공-발 근접도) |
-
----
-
-## 📊 평가 지표
-
-### 1. 상체 각도 (Trunk Angle)
-
-> **무릎 – 엉덩이(꼭짓점) – 어깨**가 이루는 각도. 월드 3D 좌표 기준, 전체 프레임 평균.
-> **상체를 많이 숙일수록(각도가 작을수록) 좋은 점수** — 낮은 자세는 방향 전환과 볼 컨트롤에 유리.
-
-| 좋은 자세 (109.6°) | 나쁜 자세 (149.2°) |
-|:---:|:---:|
-| ![상체 숙임](docs/images/trunk_angle_bent_109.png) | ![상체 세움](docs/images/trunk_angle_upright_149.png) |
-| 무게중심이 낮아 민첩한 대응 가능 | 상체가 서 있어 반응이 느려짐 |
-
-### 2. 헤드업 (Head-up)
-
-> **어깨 중앙 → 눈 중앙 벡터**와 수직축(Y)의 각도. 월드 3D 좌표, **터치 ±8프레임** 범위에서 측정.
-> **터치하는 순간에는 공을 보고, 터치 후에는 다시 고개를 들어야** 시야 확보와 볼 컨트롤을 모두 잡는다.
-
-| 터치 직전 — 공 응시 (85.5°) | 터치 후 — 헤드업 (71.5°) |
-|:---:|:---:|
-| ![공 응시](docs/images/headup_frame101.png) | ![헤드업](docs/images/headup_frame133.png) |
-
-각 터치 윈도우에서 각도 변화폭(max − min)을 측정하고, 전체 터치 평균으로 점수화합니다.
-변화폭이 작을수록(머리가 안정적일수록) 높은 점수:
-
-```
-score = max(0, (30 − mean_range) / 30 × 10)
+```text
+원본 영상
+  → extract_pose.py       관절 추출 및 스켈레톤 품질 검수
+  → redetect_balls.py     매 프레임 발목 주변만 잘라 공 후보 검출
+  → evaluate.py          세 지표 계산 → 각 1/3 총점 → JSON / Markdown 표
 ```
 
-### 3. 어깨·골반 회전 (Shoulder / Pelvis Rotation)
+새 평가 경로는 SAM2를 사용하지 않습니다. `main.py`, `validate_scoring.py`, `scoring/score_mapper.py`와 기존 시각화 도구는 과거 XZ 회전 방식용입니다. 현재 결과를 얻으려면 **`evaluate.py`**를 사용하세요.
 
-> 어깨선(11→12)과 골반선(23→24) 벡터의 **XZ 평면 방향각** `atan2(z, x)`.
-> **공이 가는 방향으로 어깨와 골반이 함께 회전**해야 하며, 회전 진폭이 클수록 상체를 적극 활용한 것.
+### 환경
 
-| 터치 전 (203프레임) → 터치 후 (219프레임) |
-|:---:|
-| ![회전 프레임 비교](docs/images/rotation_frames_203_219.png) |
-
-위에서 내려다본 XZ 평면에서 어깨선의 회전:
-
-| XZ 평면 어깨 회전 (35.0°) |
-|:---:|
-| <img src="docs/images/shoulder_rotation_xz_203_219.png" width="480"> |
-
-각 프레임의 방향각 시계열에서 **극값(봉우리·골짜기) 간 차이의 평균** = 회전 진폭 점수(°).
-어깨와 골반을 **각각 독립적으로** 계산합니다.
-
----
-
-## 🧮 점수 산출
-
-영상 1편을 넣으면 **항목별 점수 3개 + 총점 = 총 4개의 점수**가 출력됩니다.
-
-```
-입력: input/in_in/영상.MOV
-        │
-        ▼
-┌─────────────────────────────────────────┐
-│  ① 상체 각도  → S_trunk  (0 ~ 10점)      │
-│  ② 헤드업     → S_head   (0 ~ 10점)      │
-│  ③ 어깨·골반  → S_rot    (0 ~ 10점)      │
-├─────────────────────────────────────────┤
-│  총점 = Σ (가중치 × 항목 점수)             │
-└─────────────────────────────────────────┘
-```
-
-- 항목별 가중치는 [config.py](config.py)의 `SKILL_EVALUATION['weights']`에서 조정
-- 점수 매핑은 기준 영상(전문가 시연)과의 편차 기반: 기준값에 가까울수록 10점
-- ⚠️ 상체 각도·회전의 0~10 매핑은 현재 고도화 진행 중 — 측정 각도(°)는 완전 동작
-
----
-
-## 🔧 신호 전처리
-
-MediaPipe 월드 랜드마크의 z축 노이즈로 인한 **스파이크(순간 튐)**와 선수 이동에 의한
-**드리프트(저주파 흐름)**를 제거하기 위해 아래 파이프라인을 사용합니다:
-
-```
-atan2(z, x) → unwrap → Hampel 이상치 제거 → 선형 보간
-→ Savitzky-Golay 평활(win=41) → 드리프트 제거(win=81 baseline 차감)
-→ find_peaks → 극값 간 차이 평균 = 회전 진폭
-```
-
-**Hampel 판별식**: 전후 ±5프레임 윈도우의 **중앙값** 대비 10° 초과 시 이상치.
-
-$$b_i = \mathbb{1}\left[\ \left|\,\theta_i - \mathrm{median}_{|j-i| \le 5}\, \theta_j\,\right| > 10°\ \right]$$
-
-4가지 판별 방식(직전 프레임 / 최근 정상값 / 이동 평균 / Hampel)을 합성 신호와 실제 영상
-13편으로 비교 검증하여 채택했습니다. 상세 근거: [docs/rotation_spike_filter_analysis.md](docs/rotation_spike_filter_analysis.md)
-
----
-
-## 🚀 설치 및 실행 절차
-
-### 요구사항
-
-| 항목 | 내용 |
-|:---|:---|
-| Python | **3.9** (MediaPipe 파이프라인) + **3.11** (SAM2 전용) |
-| OS | macOS (Apple Silicon MPS 지원), Linux |
-| 저장공간 | ~1GB (SAM2 체크포인트 포함) |
-
-> MediaPipe와 SAM2의 요구 버전이 달라 **두 버전의 Python이 모두 필요**합니다.
-> main.py(3.9)가 SAM2 추적만 3.11 서브프로세스로 호출합니다.
-
-### 1. 저장소 클론
+수치 계산만 할 때는 Python 3.11과 아래 패키지면 됩니다. 테스트에는 영상이나 모델이 필요 없습니다.
 
 ```bash
-git clone https://github.com/jiwoo1105/soccer_motion_analysis.git
-cd soccer_motion_analysis
+python3.11 -m pip install -r requirements-evaluation.txt
+python3.11 -m unittest discover -s tests -v
 ```
 
-### 2. 패키지 설치
+원본 영상부터 실행하려면 두 환경을 사용합니다. 실제 확인한 조합은 MediaPipe 추출: Python 3.9 / MediaPipe 0.10.21, 공 재검출: Python 3.11 / Ultralytics 8.4.22 / Torch 2.10.0입니다.
 
 ```bash
-# Python 3.9 — 메인 파이프라인
 python3.9 -m pip install -r requirements.txt
-
-# Python 3.11 — SAM2
-python3.11 -m pip install sam2 torch
+python3.11 -m pip install -r requirements-detection.txt
 ```
 
-### 3. 모델 체크포인트 다운로드
+- MediaPipe는 기존 `mp.solutions.pose` API를 사용합니다. 모델 복잡도 2의 `pose_landmark_heavy.tflite`를 설치된 MediaPipe의 `modules/pose_landmark/`에 준비해야 합니다. 추출기는 모델이 없으면 경로를 알려주고 종료합니다.
+- 공 검출에는 **로컬 `yolo11s.pt`**가 필요합니다. [Ultralytics 공식 YOLO11 안내](https://docs.ultralytics.com/models/yolo11/)에서 가중치를 준비하고 `--model`로 지정하세요. 이 CLI는 가중치를 자동 다운로드하지 않습니다.
+- 원본 영상, 관절 캐시, 모델 파일은 저장소에 포함하지 않습니다. 공개 결과표만으로 원본 측정을 재계산할 수는 없습니다.
+
+### 1. 관절 추출
 
 ```bash
-# SAM2 체크포인트 (~180MB)
-mkdir -p sam2_checkpoints
-wget -O sam2_checkpoints/sam2.1_hiera_small.pt \
-  https://dl.fbaipublicfiles.com/segment_anything_2/092824/sam2.1_hiera_small.pt
-
-# YOLOv8 가중치는 첫 실행 시 자동 다운로드됩니다 (yolov8n.pt)
+python3.9 extract_pose.py \
+  --video-dir input/in_in \
+  --cache-dir output/scoring_cache \
+  --manifest experiments/2026-09-20/manifest.json
 ```
 
-### 4. 분석할 영상 배치
+캐시가 이미 있으면 이 단계는 건너뜁니다. 새 영상에서는 올바른 사람의 어깨·골반을 따라가는지 원본 위에 좌표를 겹쳐 확인한 뒤 manifest를 작성해야 합니다. 추출 성공만으로 품질 검수가 끝난 것은 아닙니다. 제공 manifest는 현재 13편에 한정됩니다.
 
-```
-input/
-  └── in_in/
-      └── 내영상.MOV        # 후방 시점, 인-인 드리블 촬영 영상
-```
-
-### 5. 실행
-
-[main.py](main.py) 상단의 `video_path`를 분석할 영상으로 수정한 뒤:
+### 2. 발목 주변 공 재검출
 
 ```bash
-python3.9 main.py
+python3.11 redetect_balls.py \
+  --video-dir input/in_in \
+  --cache-dir output/scoring_cache \
+  --manifest experiments/2026-09-20/manifest.json \
+  --model yolo11s.pt --device mps \
+  --output-dir output/current/roi_candidates
 ```
 
-### 6. 출력 확인
+MPS가 없으면 `--device cpu` 또는 사용 가능한 CUDA 장치를 지정합니다. 선수의 발목을 따라가는 영역을 사용하므로 화면 오른쪽으로 움직이는 공도 포함할 수 있습니다. 영역 안에 다른 공이 들어오는 경우는 후속 후보 선택과 검수에서 확인합니다.
 
-```
-output/
-  ├── videos/skeleton_output_<영상명>.mp4   # 스켈레톤 + 공 추적 + 터치 표시 영상
-  ├── graphs/                               # 지표별 그래프 (헤드업·회전·상체각도)
-  └── (콘솔) 항목별 측정값 + 점수            # S_trunk, S_head, S_rot, 총점
-```
+### 3. 점수표 생성
 
----
-
-## 📁 프로젝트 구조
-
-```
-soccer_motion_analysis/
-├── main.py                      # 전체 파이프라인 실행 (진입점)
-├── config.py                    # 터치 감지·평가 가중치 등 모든 설정
-├── requirements.txt
-│
-├── core/
-│   ├── pose_extractor.py        # MediaPipe 포즈 추출
-│   └── ball_detector.py         # YOLO 공 검출
-├── sam2_ball_tracker.py         # SAM2 공 추적 (Python 3.11)
-│
-├── analysis/
-│   ├── ball_motion_analyzer.py  # 공 궤적 분석 + 터치 감지
-│   ├── head_pose_analyzer.py    # 헤드업 각도 + 점수
-│   ├── trunk_pose_analyzer.py   # 상체 각도
-│   └── dribble_cycle_analyzer.py# 드리블 사이클 분석
-│
-├── visualization/
-│   ├── skeleton_drawer.py       # 스켈레톤/벡터 오버레이
-│   ├── head_pose_plotter.py
-│   ├── trunk_pose_plotter.py
-│   ├── ball_motion_plotter.py
-│   ├── dribble_cycle_plotter.py
-│   └── pose_3d_plotter.py       # 3D 포즈 시각화
-│
-├── utils/math_utils.py
-│
-├── extract_rotation_score.py    # 어깨·골반 회전 점수 일괄 추출 (연구용)
-├── compare_spike_methods.py     # 이상치 판별 4방식 비교 실험 (연구용)
-├── visualize_trunk_angle.py     # README 상체각도 그림 생성
-├── visualize_headup_angle.py    # README 헤드업 그림 생성
-├── visualize_shoulder_rotation.py # README 회전 그림 생성
-│
-└── docs/
-    ├── rotation_spike_filter_analysis.md   # 전처리 방법론 검증 (Hampel 채택 근거)
-    ├── hampel_formula_latex.md             # 수식 정리
-    └── images/                             # README 그림
+```bash
+python3.11 evaluate.py \
+  --cache-dir output/scoring_cache \
+  --candidates-dir output/current/roi_candidates \
+  --output-dir output/current/evaluation
 ```
 
----
+결과는 `results.json`, `scores.md`입니다. 기존 파일은 기본적으로 덮어쓰지 않으며, 교체하려면 해당 CLI에 `--overwrite`를 지정합니다. 계산 불가 항목이 하나라도 있으면 총점은 `N/A`입니다.
 
-## 📚 참고 문서
+동일 원본·캐시로 공개된 실험값을 재현했는지 확인하려면 평가 명령에 아래 옵션을 추가합니다. 새 영상에는 적용하지 않습니다.
 
-| 문서 | 내용 |
-|:---|:---|
-| [rotation_spike_filter_analysis.md](docs/rotation_spike_filter_analysis.md) | 스파이크 판별 4방식 비교 검증, Hampel 채택 근거, 점수대 상관 분석 |
-| [hampel_formula_latex.md](docs/hampel_formula_latex.md) | 전처리 파이프라인 수식 정리 |
-| [MediaPipe Pose](https://developers.google.com/mediapipe/solutions/vision/pose_landmarker) | 33개 랜드마크 정의 |
-| [SAM2](https://github.com/facebookresearch/sam2) | 마스크 기반 비디오 객체 추적 |
-| [Ultralytics YOLOv8](https://github.com/ultralytics/ultralytics) | 실시간 객체 검출 |
+```bash
+--verify-snapshot experiments/2026-09-20/results.json
+```
+
+## 검증한 범위
+
+- 새 수치 계산 경로에서 **11편의 측정값·점수와 채택 이벤트 45개**를 기존 실험과 대조했습니다.
+- 발목 주변 ROI는 **2,853프레임 전체**에서 기존 실험과 일치했습니다. 1편의 실제 공 재검출 및 관절 재추출도 기존 캐시와 대조했습니다.
+- 어깨·골반은 깊이값 없이 계산하지만, 카메라 시점과 가림 영향은 남습니다. 공 방향 전환 후보도 실제 접촉 시점의 정답 라벨은 아닙니다.
+- 지표 선택과 가중치 비교는 같은 소규모 자료에서 진행했습니다. 시간 구간에 따른 변동도 있어 별도 영상과 항목별 전문가 평가가 필요합니다.
+
+## 파일 안내
+
+| 경로 | 역할 |
+|---|---|
+| `extract_pose.py` | 기존 MediaPipe 추출기의 관절 전용 CLI |
+| `redetect_balls.py`, `scoring/roi_ball.py` | 발목 ROI 공 후보 생성, 원본 좌표 복원 |
+| `evaluate.py`, `scoring/current_metrics.py` | 현재 지표, 잠정 점수, 결과표 |
+| `experiments/2026-09-20/` | 분석 대상, 고정 환산값, 공개 결과표·검증 요약 |
+| `tests/` | 좌표·결측·점수·입출력 검증 |
+| `analysis/`, `visualization/`, 기존 루트 실험 파일 | 과거 분석 및 시각화; [구분 안내](docs/legacy_experiments.md) 참고 |

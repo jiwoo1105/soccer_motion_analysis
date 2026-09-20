@@ -1,0 +1,18 @@
+{
+  "version": "2026-09-20-relative-alignment-roi",
+  "headup": {
+    "opt": 12.36499326411981,
+    "tau": 3.36272219957,
+    "reference_count": 2,
+    "all_count": 11
+  },
+  "trunk": {
+    "opt": 143.5371782563524,
+    "tau": 7.455044477109192,
+    "n_reference": 2,
+    "n_all": 12,
+    "std": 3.727522238554596
+  },
+  "body_reference_mean": 0.08289798112737881,
+  "provenance": "Head: two-reference mean and 2*sample SD of 11 retained clips after ROI re-detection. Trunk: preserved historical opt/tau. Body: mean M of two references. Fixed exploratory calibration; not fit again when scoring a new clip."
+}

@@ -1,0 +1,5 @@
+# Current ROI inference; tested on macOS MPS with Python 3.11.
+-r requirements-evaluation.txt
+ultralytics==8.4.22
+torch==2.10.0
+opencv-python>=4.10,<5

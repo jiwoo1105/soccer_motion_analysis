@@ -1,3 +1,4 @@
+# Legacy pipeline configuration. Current scoring uses experiments/2026-09-20/calibration.json and scoring/current_metrics.py.
 # config.py
 """축구 드리블 스킬 평가 시스템 설정"""
 
@@ -16,13 +17,11 @@ BALL_DETECTION_CONFIG = {
     # 꼬깔콘 필터링은 코드에 내장 (색상 + 크기 자동 필터링)
 }
 
-# 공 움직임 분석 설정
+# 공 움직임 분석 설정 (거리×속도 결합 신호 기반 터치 감지)
 BALL_MOTION_CONFIG = {
-    'min_velocity_threshold': 5.0,  # 최소 속도 임계값 (pixels/frame)
-    'peak_prominence': 10.0,        # Peak 감지 민감도 (클수록 덜 민감)
-    'min_distance_between_touches': 5,  # 터치 간 최소 프레임 거리
-    'use_smoothing': True,          # 궤적 스무딩 사용 여부 (Savitzky-Golay)
-    'smoothing_window': 5,          # 스무딩 윈도우 크기 (홀수)
+    'min_distance_between_touches': 10,  # 터치 간 최소 프레임 거리 (30fps 기준 0.33초)
+    'peak_prominence': 0.1,              # 결합 신호 민감도 (0~1 범위)
+    'max_touch_distance': 150,           # 터치로 인정할 최대 발-공 거리 (px)
 }
 
 # MediaPipe Landmark 인덱스

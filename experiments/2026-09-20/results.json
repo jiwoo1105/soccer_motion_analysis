@@ -1,0 +1,304 @@
+{
+  "version": "2026-09-20-relative-alignment-roi",
+  "provisional": true,
+  "rows": [
+    {
+      "video": "인,인 3-1",
+      "grade": 3,
+      "reference": false,
+      "excluded": false,
+      "exclude_reason": null,
+      "head_raw": 9.907710411884008,
+      "trunk_raw": 151.40101280662753,
+      "body_M": 0.047587513828088776,
+      "head_score": 2.692578493251622,
+      "trunk_score": 0.0,
+      "body_score": 5.740491285905634,
+      "events": [
+        43,
+        85,
+        128,
+        170
+      ],
+      "candidate_count": 4,
+      "total": 2.811023259719085
+    },
+    {
+      "video": "인,인 3-2",
+      "grade": 3,
+      "reference": false,
+      "excluded": false,
+      "exclude_reason": null,
+      "head_raw": 7.735308037421641,
+      "trunk_raw": 154.83152400060928,
+      "body_M": 0.045476333383271735,
+      "head_score": 0.0,
+      "trunk_score": 0.0,
+      "body_score": 5.48581916770615,
+      "events": [
+        79,
+        121,
+        161,
+        185
+      ],
+      "candidate_count": 6,
+      "total": 1.8286063892353832
+    },
+    {
+      "video": "인,인 5-1",
+      "grade": 5,
+      "reference": false,
+      "excluded": false,
+      "exclude_reason": null,
+      "head_raw": 8.675116321572402,
+      "trunk_raw": 150.55624216258266,
+      "body_M": 0.045955898027016384,
+      "head_score": 0.0,
+      "trunk_score": 0.5848128367545197,
+      "body_score": 5.543669146345287,
+      "events": [
+        50,
+        91,
+        134,
+        178
+      ],
+      "candidate_count": 4,
+      "total": 2.0428273276999356
+    },
+    {
+      "video": "인,인 6-1",
+      "grade": 6,
+      "reference": false,
+      "excluded": true,
+      "exclude_reason": "다른 사람 추적 / 스켈레톤 불량",
+      "total": null
+    },
+    {
+      "video": "인,인 7-1",
+      "grade": 7,
+      "reference": false,
+      "excluded": false,
+      "exclude_reason": null,
+      "head_raw": 8.378710511745393,
+      "trunk_raw": 154.49095317840147,
+      "body_M": 0.05260029739656692,
+      "head_score": 0.0,
+      "trunk_score": 0.0,
+      "body_score": 6.345184367728174,
+      "events": [
+        28,
+        81,
+        117,
+        155,
+        194
+      ],
+      "candidate_count": 7,
+      "total": 2.115061455909391
+    },
+    {
+      "video": "인,인 7-2",
+      "grade": 7,
+      "reference": false,
+      "excluded": false,
+      "exclude_reason": null,
+      "head_raw": 10.801213609339623,
+      "trunk_raw": 149.7652132691936,
+      "body_M": 0.05921028112485628,
+      "head_score": 5.349661488599468,
+      "trunk_score": 1.6458781272674503,
+      "body_score": 7.142548023440445,
+      "events": [
+        14,
+        53,
+        93,
+        131,
+        204
+      ],
+      "candidate_count": 5,
+      "total": 4.712695879769121
+    },
+    {
+      "video": "인,인 7-3",
+      "grade": 7,
+      "reference": false,
+      "excluded": true,
+      "exclude_reason": "다른 사람 추적 / 스켈레톤 불량",
+      "total": null
+    },
+    {
+      "video": "인,인 8-1",
+      "grade": 8,
+      "reference": false,
+      "excluded": false,
+      "exclude_reason": null,
+      "head_raw": 9.647453933403423,
+      "trunk_raw": 149.3899499419356,
+      "body_M": 0.05698946396793818,
+      "head_score": 1.9186326748493021,
+      "trunk_score": 2.1492464551295223,
+      "body_score": 6.874650406789726,
+      "events": [
+        52,
+        136,
+        177,
+        219
+      ],
+      "candidate_count": 5,
+      "total": 3.647509845589517
+    },
+    {
+      "video": "인,인 8-2",
+      "grade": 8,
+      "reference": false,
+      "excluded": false,
+      "exclude_reason": null,
+      "head_raw": 8.729982894556036,
+      "trunk_raw": 151.6577214208669,
+      "body_M": 0.05476185330021088,
+      "head_score": 0.0,
+      "trunk_score": 0.0,
+      "body_score": 6.605933287574915,
+      "events": [
+        62,
+        94,
+        189
+      ],
+      "candidate_count": 4,
+      "total": 2.2019777625249715
+    },
+    {
+      "video": "인,인 9-1",
+      "grade": 9,
+      "reference": false,
+      "excluded": false,
+      "exclude_reason": null,
+      "head_raw": 11.711227266752493,
+      "trunk_raw": 146.40760141570343,
+      "body_M": 0.06161983237192736,
+      "head_score": 8.05584297908725,
+      "trunk_score": 6.1496900948549795,
+      "body_score": 7.433212671035255,
+      "events": [
+        15,
+        51,
+        91,
+        129,
+        167,
+        207
+      ],
+      "candidate_count": 7,
+      "total": 7.212915248325828
+    },
+    {
+      "video": "인,인 9-2",
+      "grade": 9,
+      "reference": false,
+      "excluded": false,
+      "exclude_reason": null,
+      "head_raw": 11.44214005542922,
+      "trunk_raw": 146.45777187494815,
+      "body_M": 0.06962399354791378,
+      "head_score": 7.255636493527185,
+      "trunk_score": 6.082392764304137,
+      "body_score": 8.398756230375673,
+      "events": [
+        134,
+        163,
+        195
+      ],
+      "candidate_count": 8,
+      "total": 7.245595162735664
+    },
+    {
+      "video": "인,인 기준1",
+      "grade": null,
+      "reference": true,
+      "excluded": false,
+      "exclude_reason": null,
+      "head_raw": 12.842545167267668,
+      "trunk_raw": 143.59439375732384,
+      "body_M": 0.08514422142692857,
+      "head_score": 8.57986513661782,
+      "trunk_score": 9.923252636322802,
+      "body_score": 10,
+      "events": [
+        39,
+        119,
+        183
+      ],
+      "candidate_count": 5,
+      "total": 9.501039257646873
+    },
+    {
+      "video": "인,인 기준2",
+      "grade": null,
+      "reference": true,
+      "excluded": false,
+      "exclude_reason": null,
+      "head_raw": 11.887441360971952,
+      "trunk_raw": 143.47996275538097,
+      "body_M": 0.08065174082782907,
+      "head_score": 8.579865136617814,
+      "trunk_score": 9.923252636322802,
+      "body_score": 9.729035584582183,
+      "events": [
+        33,
+        73,
+        157,
+        221
+      ],
+      "candidate_count": 8,
+      "total": 9.410717785840934
+    }
+  ],
+  "weight_comparisons": [
+    {
+      "label": "기존 50·30·20",
+      "weights_trunk_head_body": [
+        0.5,
+        0.3,
+        0.2
+      ],
+      "n": 9,
+      "rho": 0.6695877098255503,
+      "ordinal_pairs_correct_fraction": 0.78125,
+      "leave_one_video_out_rho_range": [
+        0.5334215094657592,
+        0.8001322641986388
+      ],
+      "mae_descriptive_only": 3.466470144963333
+    },
+    {
+      "label": "동일 비중 (기본안)",
+      "weights_trunk_head_body": [
+        0.3333333333333333,
+        0.3333333333333333,
+        0.3333333333333333
+      ],
+      "n": 9,
+      "rho": 0.7543456477781516,
+      "ordinal_pairs_correct_fraction": 0.84375,
+      "leave_one_video_out_rho_range": [
+        0.6546536707079772,
+        0.8849947770681914
+      ],
+      "mae_descriptive_only": 2.797976407610123
+    },
+    {
+      "label": "어깨·골반 강조 30·20·50",
+      "weights_trunk_head_body": [
+        0.3,
+        0.2,
+        0.5
+      ],
+      "n": 9,
+      "rho": 0.7543456477781516,
+      "ordinal_pairs_correct_fraction": 0.84375,
+      "leave_one_video_out_rho_range": [
+        0.6546536707079772,
+        0.8849947770681914
+      ],
+      "mae_descriptive_only": 2.2215904311555
+    }
+  ]
+}

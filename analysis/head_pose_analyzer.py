@@ -15,18 +15,21 @@ class HeadPoseData:
     mean_angle: float                   # 평균 머리 각도
     sum_squared_deviations: float       # Σ(각도 - 평균)²
     touch_frames: list                  # 터치 순간 프레임 번호들 (그래프 표시용)
+    touch_window_data: list = None      # 터치 전후 ±8프레임 각도 변화율 데이터
+    touch_window_mean_angle: float = None  # 터치 윈도우 전체 각도 평균
+    touch_window_mean_range: float = None  # 터치별 (최대-최소) 평균
 
     def __str__(self):
-        """사용자 친화적인 출력 포맷"""
         result = []
         result.append("="*70)
         result.append("머리 자세 분석 결과")
         result.append("="*70)
         result.append(f"총 분석 프레임 수: {len(self.frame_numbers)}")
         result.append(f"평균 머리 각도: {self.mean_angle:.2f}°")
-        result.append(f"편차 제곱합: {self.sum_squared_deviations:.2f}")
         if len(self.touch_frames) > 0:
             result.append(f"터치 횟수: {len(self.touch_frames)}")
+        if self.touch_window_mean_range is not None:
+            result.append(f"mean_range (터치별 각도 변화폭 평균): {self.touch_window_mean_range:.2f}°")
         result.append("="*70)
         return "\n".join(result)
 
@@ -135,10 +138,99 @@ class HeadPoseAnalyzer:
         if ball_motion_data:
             touch_frames = ball_motion_data.touch_frames
 
+        # 터치 전후 ±8프레임 각도 변화율 계산
+        touch_window_data, touch_window_mean_angle, touch_window_mean_range = \
+            self._compute_touch_window(frame_numbers, head_angles, touch_frames)
+
         return HeadPoseData(
             frame_numbers=frame_numbers,
             head_angles=head_angles,
             mean_angle=mean_angle,
             sum_squared_deviations=sum_squared_deviations,
-            touch_frames=touch_frames
+            touch_frames=touch_frames,
+            touch_window_data=touch_window_data,
+            touch_window_mean_angle=touch_window_mean_angle,
+            touch_window_mean_range=touch_window_mean_range,
         )
+
+    def _compute_touch_window(self, frame_numbers: np.ndarray, head_angles: np.ndarray,
+                               touch_frames: list, window: int = 8):
+        """각 터치 전후 ±window 프레임의 머리 각도 변화율 계산
+
+        Args:
+            frame_numbers: 분석된 프레임 번호 배열
+            head_angles: 각 프레임의 머리 각도 배열
+            touch_frames: 터치 프레임 번호 리스트
+            window: 터치 전후 프레임 수 (기본값 8)
+
+        Returns:
+            tuple: (touch_window_data, touch_window_mean_angle, touch_window_mean_range)
+
+            touch_window_data: list of dict [
+                {
+                    'touch_num': int,       # 터치 번호 (1-based)
+                    'touch_frame': int,     # 터치 프레임 번호
+                    'rel_frames': list,     # 상대 프레임 인덱스 (-5 ~ +5)
+                    'angles': list,         # 각 상대 프레임의 머리 각도
+                    'rates': list,          # 각 상대 프레임의 변화율 (deg/frame)
+                    'angle_range': float,   # 해당 터치 윈도우의 최대-최소 각도
+                }
+            ]
+            touch_window_mean_angle: 전체 터치 윈도우 각도 평균
+            touch_window_mean_range: 터치별 (최대-최소)의 평균 → 점수 계산 기준
+            touch_window_mean_range: 터치별 변화폭 평균
+
+        점수 기준:
+            각 터치 윈도우(±8프레임)에서 max - min = 각도 변화폭
+            이를 모든 터치에 대해 평균 → mean_range
+            mean_range가 작을수록 안정적인 헤드업 자세 → 높은 점수
+              0°   → 10점  (변화 없음 = 머리 고정)
+              30°+ →  0점  (변화폭 큼 = 머리 흔들림)
+            score = max(0, (30 - mean_range) / 30 * 10)
+        """
+        angle_map = {int(f): float(a) for f, a in zip(frame_numbers, head_angles)}
+        result = []
+        all_window_angles = []
+        per_touch_ranges = []
+
+        for i, tf in enumerate(touch_frames):
+            tf = int(tf)
+            rel_frames = []
+            angles = []
+
+            for rel in range(-window, window + 1):
+                frame = tf + rel
+                if frame in angle_map:
+                    rel_frames.append(rel)
+                    angles.append(angle_map[frame])
+
+            if len(angles) < 3:
+                continue
+
+            all_window_angles.extend(angles)
+
+            # 이 터치 윈도우의 각도 변화폭 (최대 - 최소)
+            angle_range = float(max(angles) - min(angles))
+            per_touch_ranges.append(angle_range)
+
+            # 중앙 차분으로 변화율 계산 (deg/frame)
+            rates = list(np.gradient(angles, rel_frames))
+
+            result.append({
+                'touch_num': i + 1,
+                'touch_frame': tf,
+                'rel_frames': rel_frames,
+                'angles': angles,
+                'rates': rates,
+                'angle_range': angle_range,
+            })
+
+        # 전체 윈도우 통계
+        if all_window_angles and per_touch_ranges:
+            touch_window_mean_angle = float(np.mean(all_window_angles))
+            touch_window_mean_range = float(np.mean(per_touch_ranges))
+        else:
+            touch_window_mean_angle = None
+            touch_window_mean_range = None
+
+        return result, touch_window_mean_angle, touch_window_mean_range

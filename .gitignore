@@ -47,3 +47,12 @@ yolo*.yaml
 # 채점 파이프라인 중간 산출물
 output/scoring_cache/
 output/extract_batch.log
+
+# Private inputs, machine-specific permissions and additional environments
+input/
+.claude/
+.venv/
+.env.*
+*.[mM][oO][vV]
+*.[mM][pP]4
+*.[aA][vV][iI]

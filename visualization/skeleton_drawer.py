@@ -215,6 +215,139 @@ class SkeletonDrawer:
 
         return output
 
+    def draw_head_vector(self, frame: np.ndarray,
+                         landmarks: np.ndarray,
+                         color: Tuple[int, int, int] = (0, 0, 255),
+                         thickness: int = 3) -> np.ndarray:
+        """헤드업 측정 기준 벡터를 빨간 막대로 시각화
+
+        어깨 중앙 → 눈 중앙 벡터를 영상에 직접 그려서
+        머리 각도 측정 기준을 직관적으로 보여줌.
+
+        랜드마크 인덱스:
+            2  = LEFT_EYE
+            5  = RIGHT_EYE
+            11 = LEFT_SHOULDER
+            12 = RIGHT_SHOULDER
+
+        Args:
+            frame: BGR 이미지
+            landmarks: (33, 3) normalized landmarks [0-1 범위]
+            color: 선 색상 (BGR), 기본값 빨간색
+            thickness: 선 두께
+
+        Returns:
+            np.ndarray: 헤드 벡터가 그려진 이미지
+        """
+        h, w, _ = frame.shape
+        output = frame.copy()
+
+        LEFT_EYE, RIGHT_EYE = 2, 5
+        LEFT_SHOULDER, RIGHT_SHOULDER = 11, 12
+
+        # 눈 중앙 픽셀
+        eye_center_x = (landmarks[LEFT_EYE][0] + landmarks[RIGHT_EYE][0]) / 2 * w
+        eye_center_y = (landmarks[LEFT_EYE][1] + landmarks[RIGHT_EYE][1]) / 2 * h
+
+        # 어깨 중앙 픽셀
+        shoulder_center_x = (landmarks[LEFT_SHOULDER][0] + landmarks[RIGHT_SHOULDER][0]) / 2 * w
+        shoulder_center_y = (landmarks[LEFT_SHOULDER][1] + landmarks[RIGHT_SHOULDER][1]) / 2 * h
+
+        pt_shoulder = (int(shoulder_center_x), int(shoulder_center_y))
+        pt_eye      = (int(eye_center_x),      int(eye_center_y))
+
+        # 어깨 → 눈 방향으로 화살표 형태의 선
+        cv2.line(output, pt_shoulder, pt_eye, color, thickness, cv2.LINE_AA)
+
+        # 양 끝점 강조 (작은 원)
+        cv2.circle(output, pt_shoulder, 5, color, -1)
+        cv2.circle(output, pt_eye,      5, color, -1)
+
+        return output
+
+    def draw_body_direction_vectors(self, frame: np.ndarray,
+                                     landmarks: np.ndarray,
+                                     world_landmarks: np.ndarray = None,
+                                     color: Tuple[int, int, int] = (255, 100, 0),
+                                     thickness: int = 4) -> np.ndarray:
+        """어깨·골반 라인 + R→L 방향 화살표 (협응성 분석 기준)
+
+        어깨 라인: left_shoulder ──→ right_shoulder
+        골반 라인: left_hip      ──→ right_hip
+        화살표 방향: R_HIP - L_HIP 벡터 (오른쪽이 끝점)
+        """
+        h, w, _ = frame.shape
+        output = frame.copy()
+
+        L_SH, R_SH   = 11, 12
+        L_HIP, R_HIP = 23, 24
+
+        def to_px(idx):
+            return (int(landmarks[idx][0] * w), int(landmarks[idx][1] * h))
+
+        pt_lsh  = to_px(L_SH)
+        pt_rsh  = to_px(R_SH)
+        pt_lhip = to_px(L_HIP)
+        pt_rhip = to_px(R_HIP)
+
+        for pt_l, pt_r, label in [(pt_lsh, pt_rsh, 'S'), (pt_lhip, pt_rhip, 'P')]:
+            # 라인 끝(오른쪽)에 화살표 (L → R 방향)
+            cv2.arrowedLine(output, pt_l, pt_r, color, thickness, cv2.LINE_AA, tipLength=0.25)
+
+            # 양 끝점 강조
+            cv2.circle(output, pt_l, 5, color, -1)
+            cv2.circle(output, pt_r, 5, color, -1)
+
+            # 라벨 (S=어깨, P=골반) — 라인 중앙 위에
+            cx = (pt_l[0] + pt_r[0]) // 2
+            cy = (pt_l[1] + pt_r[1]) // 2
+            cv2.putText(output, label, (cx - 8, cy - 10),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.55, color, 2, cv2.LINE_AA)
+
+        return output
+
+    def draw_trunk_angle(self, frame: np.ndarray,
+                         landmarks: np.ndarray,
+                         trunk_angle: Optional[float] = None,
+                         color: Tuple[int, int, int] = (255, 255, 255),
+                         thickness: int = 2) -> np.ndarray:
+        """상체 측정 기준 연결선 표시 (엉덩이→어깨, 엉덩이→무릎, 흰색)
+
+        랜드마크 인덱스:
+            11=LEFT_SHOULDER,  12=RIGHT_SHOULDER
+            23=LEFT_HIP,       24=RIGHT_HIP
+            25=LEFT_KNEE,      26=RIGHT_KNEE
+
+        Args:
+            frame:       BGR 이미지
+            landmarks:   (33, 3) normalized landmarks [0-1 범위]
+            trunk_angle: 미사용 (호환성 유지용)
+            color:       연결선 색상
+            thickness:   연결선 두께
+
+        Returns:
+            np.ndarray: 연결선이 그려진 이미지
+        """
+        h, w, _ = frame.shape
+        output = frame.copy()
+
+        L_SH, R_SH   = 11, 12
+        L_HIP, R_HIP = 23, 24
+        L_KN, R_KN   = 25, 26
+
+        def to_px(idx):
+            return (int(landmarks[idx][0] * w), int(landmarks[idx][1] * h))
+
+        for sh_idx, hip_idx, kn_idx in [(L_SH, L_HIP, L_KN), (R_SH, R_HIP, R_KN)]:
+            pt_sh  = to_px(sh_idx)
+            pt_hip = to_px(hip_idx)
+            pt_kn  = to_px(kn_idx)
+            cv2.line(output, pt_hip, pt_sh, color, thickness, cv2.LINE_AA)
+            cv2.line(output, pt_hip, pt_kn, color, thickness, cv2.LINE_AA)
+            cv2.circle(output, pt_hip, 4, color, -1)
+
+        return output
+
     def draw_ball_bbox(self, frame: np.ndarray,
                       ball_bbox: Optional[Tuple[int, int, int, int]],
                       color: Tuple[int, int, int] = (0, 255, 255),
@@ -240,6 +373,21 @@ class SkeletonDrawer:
         # 바운딩 박스 사각형 그리기
         cv2.rectangle(output, (x1, y1), (x2, y2), color, thickness)
 
+        return output
+
+    def draw_ball_interpolated(self, frame: np.ndarray,
+                               position: Tuple[int, int],
+                               radius: int = 18) -> np.ndarray:
+        """보간된 공 위치 표시 (감지 안 된 프레임)
+
+        점선 느낌의 얇은 주황색 원으로 표시해 실제 감지와 구분.
+        """
+        output = frame.copy()
+        cx, cy = int(position[0]), int(position[1])
+        # 주황색 얇은 원 (보간 추정 위치)
+        cv2.circle(output, (cx, cy), radius, (0, 165, 255), 2)
+        # 중심 점
+        cv2.circle(output, (cx, cy), 3, (0, 165, 255), -1)
         return output
 
     def draw_ball_trajectory(self, frame: np.ndarray,
@@ -272,26 +420,26 @@ class SkeletonDrawer:
         return output
 
     def draw_touch_highlight(self, frame: np.ndarray,
-                            ball_position: Optional[Tuple[int, int]],
+                            foot_position: Optional[Tuple[int, int]],
                             text: str = "TOUCH!") -> np.ndarray:
         """
         터치 순간 하이라이트 표시
 
         Args:
             frame: BGR 이미지
-            ball_position: (x, y) 공의 위치, None이면 화면 중앙에 표시
+            foot_position: (x, y) 터치한 발의 발끝-뒤꿈치 중앙 위치, None이면 원 미표시
             text: 표시할 텍스트
 
         Returns:
             np.ndarray: 하이라이트가 그려진 이미지
         """
         output = frame.copy()
-        h, w, _ = frame.shape
+        _, w, _ = frame.shape
 
-        # 공 위치에 빨간 원 그리기
-        if ball_position is not None:
-            center = (int(ball_position[0]), int(ball_position[1]))
-            cv2.circle(output, center, 30, (0, 0, 255), 3)
+        # 터치한 발 중앙에 빨간 원 그리기
+        if foot_position is not None:
+            center = (int(foot_position[0]), int(foot_position[1]))
+            cv2.circle(output, center, 20, (0, 0, 255), 3)
 
         # "TOUCH!" 텍스트 표시 (화면 상단)
         font = cv2.FONT_HERSHEY_SIMPLEX

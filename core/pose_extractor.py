@@ -10,7 +10,7 @@ MediaPipe를 사용한 3D 포즈 추출
 1. MediaPipe Pose 모델을 사용한 33개 랜드마크 추출
 2. 각 프레임마다 2가지 좌표계 제공:
    - landmarks: 이미지 좌표 (0-1로 정규화, 화면 상 위치)
-   - world_landmarks: 실제 3D 좌표 (미터 단위, 실제 공간 위치)
+   - world_landmarks: 추정 3D 좌표 (미터 단위, 추정 공간 위치)
 3. visibility 점수로 각 랜드마크의 신뢰도 제공
 
 MediaPipe Pose의 33개 랜드마크:
@@ -63,9 +63,9 @@ class PoseFrame:
                    - landmarks[i][0]: x 좌표 (좌우, 0=왼쪽, 1=오른쪽)
                    - landmarks[i][1]: y 좌표 (상하, 0=위, 1=아래)
                    - landmarks[i][2]: z 좌표 (깊이, 카메라 기준)
-        world_landmarks: (33, 3) 실제 3D 좌표 (미터 단위)
-                        - 엉덩이 중심을 원점으로 하는 실제 공간 좌표
-                        - 각도 계산에는 이 좌표를 사용 (더 정확함)
+        world_landmarks: (33, 3) 추정 3D 좌표 (미터 단위)
+                        - 엉덩이 중심을 원점으로 하는 추정 공간 좌표
+                        - 기존 각도 계산에서 사용하는 추정 좌표
         visibility: (33,) visibility 점수 [0-1]
                    - 1.0: 매우 확신함
                    - 0.0: 가려져서 보이지 않음

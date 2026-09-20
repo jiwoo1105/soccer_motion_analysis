@@ -137,13 +137,94 @@ class HeadPosePlotter:
         # 통계 정보 텍스트 박스
         stats_text = f'평균: {head_pose_data.mean_angle:.2f}°\n'
         stats_text += f'편차 제곱합: {head_pose_data.sum_squared_deviations:.2f}'
-
+        if head_pose_data.touch_window_mean_range is not None:
+            stats_text += f'\n터치 변화폭 평균: {head_pose_data.touch_window_mean_range:.2f}°'
         # 텍스트 박스 위치 (왼쪽 상단)
         ax.text(0.02, 0.98, stats_text,
                transform=ax.transAxes,
                fontsize=9,
                verticalalignment='top',
                bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
+
+    def plot_touch_window_rate(self, head_pose_data, save_path: Optional[str] = None):
+        """터치 전후 ±8프레임 머리 각도 변화율 그래프
+
+        각 터치별로 서브플롯을 만들어:
+        - 상단: 머리 각도 (degrees)
+        - 하단: 각도 변화율 (deg/frame)
+        X축: 터치 시점 기준 상대 프레임 (-5 ~ +5)
+
+        Args:
+            head_pose_data: HeadPoseData 객체
+            save_path: 저장 경로 (None이면 화면 표시)
+        """
+        data = head_pose_data.touch_window_data
+        if not data:
+            print("Warning: 터치 윈도우 데이터가 없습니다.")
+            return
+
+        n = len(data)
+        fig, axes = plt.subplots(2, n, figsize=(max(5 * n, 8), 8), squeeze=False)
+
+        # 전체 요약 제목
+        title = '터치 시점 전후 ±8프레임 머리 각도 변화율'
+        if head_pose_data.touch_window_mean_range is not None:
+            title += f'    |    평균 변화폭: {head_pose_data.touch_window_mean_range:.1f}°'
+        fig.suptitle(title, fontsize=13, fontweight='bold')
+
+        for col, wd in enumerate(data):
+            rel         = wd['rel_frames']
+            ang         = wd['angles']
+            rates       = wd['rates']
+            tf          = wd['touch_frame']
+            tnum        = wd['touch_num']
+            angle_range = wd.get('angle_range', max(ang) - min(ang))
+
+            # ── 상단: 머리 각도 ──────────────────────────────────────────
+            ax_top = axes[0][col]
+            ax_top.plot(rel, ang, 'b-o', linewidth=2, markersize=5, label='머리 각도')
+            ax_top.axvline(x=0, color='red', linestyle='--', linewidth=1.5, label='터치')
+            ax_top.set_title(
+                f'Touch #{tnum}  (Frame {tf})\n변화폭: {angle_range:.1f}°',
+                fontsize=10, fontweight='bold'
+            )
+            ax_top.set_ylabel('각도 (deg)', fontsize=10)
+            ax_top.set_xticks(rel)
+            ax_top.grid(True, alpha=0.3)
+            ax_top.legend(fontsize=8)
+
+            # 0° 기준선
+            ax_top.axhline(y=0, color='gray', linewidth=0.8, linestyle=':')
+
+            # ── 하단: 변화율 ─────────────────────────────────────────────
+            ax_bot = axes[1][col]
+            colors = ['tomato' if r > 0 else 'steelblue' for r in rates]
+            ax_bot.bar(rel, rates, color=colors, alpha=0.8, edgecolor='black', linewidth=0.5)
+            ax_bot.axvline(x=0, color='red', linestyle='--', linewidth=1.5)
+            ax_bot.axhline(y=0, color='black', linewidth=0.8)
+            ax_bot.set_xlabel('터치 기준 상대 프레임', fontsize=10)
+            ax_bot.set_ylabel('변화율 (deg/frame)', fontsize=10)
+            ax_bot.set_title('각도 변화율', fontsize=10)
+            ax_bot.set_xticks(rel)
+            ax_bot.grid(True, alpha=0.3, axis='y')
+
+            # 색 범례
+            from matplotlib.patches import Patch
+            legend_elements = [
+                Patch(facecolor='tomato',    alpha=0.8, label='각도 증가 (↑)'),
+                Patch(facecolor='steelblue', alpha=0.8, label='각도 감소 (↓)'),
+            ]
+            ax_bot.legend(handles=legend_elements, fontsize=8)
+
+        plt.tight_layout(rect=[0, 0, 1, 0.95])
+
+        if save_path:
+            Path(save_path).parent.mkdir(parents=True, exist_ok=True)
+            plt.savefig(save_path, dpi=150, bbox_inches='tight')
+            print(f"✓ 터치 윈도우 변화율 그래프 저장: {save_path}")
+            plt.close()
+        else:
+            plt.show()
 
     def plot_angle_distribution(self, head_pose_data, save_path: Optional[str] = None):
         """

@@ -52,7 +52,13 @@ output/extract_batch.log
 input/
 .claude/
 .venv/
+.venv*/
+.cache/
 .env.*
 *.[mM][oO][vV]
 *.[mM][pP]4
 *.[aA][vV][iI]
+
+# Local test cache and pose weights
+.pytest_cache/
+*.tflite

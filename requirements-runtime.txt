@@ -1,0 +1,13 @@
+# Reproducible single-environment video pipeline, Python 3.11.
+numpy==1.26.4
+scipy==1.13.1
+mediapipe==0.10.21
+opencv-python==4.11.0.86
+opencv-contrib-python==4.11.0.86
+ultralytics==8.4.22
+torch==2.10.0
+torchvision==0.25.0
+matplotlib==3.9.4
+Pillow==11.3.0
+jax==0.4.35
+jaxlib==0.4.35

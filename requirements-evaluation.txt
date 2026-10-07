@@ -1,3 +1,6 @@
-# Current numeric evaluation; verified with Python 3.11, NumPy 2.4.3, SciPy 1.17.1.
-numpy>=1.26,<3
-scipy>=1.13,<2
+# Model-free tests and verified cache replay. Python 3.11.
+numpy==1.26.4
+scipy==1.13.1
+opencv-python==4.11.0.86
+Pillow==11.3.0
+pytest==8.4.2

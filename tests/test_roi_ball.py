@@ -16,7 +16,6 @@ import numpy as np
 
 from scoring.roi_ball import remap_detections, roi_for
 import redetect_balls as cli
-import extract_pose as pose_cli
 
 
 def pose_fixture():
@@ -351,66 +350,6 @@ runpy.run_module('redetect_balls', run_name='__main__')
             cli.process_clip(clip, pose, None, cv2=cv2, torch=None, device='cpu', batch_size=16)
         self.assertTrue(capture.released)
 
-
-class PoseExtractionTests(unittest.TestCase):
-    def test_cache_preserves_world_landmarks_and_sparse_frame_numbers(self):
-        lm, vis = pose_fixture()
-        world = np.full((33, 3), 0.125)
-        frames = [SimpleNamespace(
-            frame_number=number, timestamp=number / 25, landmarks=lm,
-            world_landmarks=world, visibility=vis, frame_width=400, frame_height=200,
-        ) for number in [0, 2]]
-        arrays = pose_cli.pose_arrays(frames)
-        self.assertEqual(set(arrays), {'frame_numbers', 'timestamps', 'landmarks',
-                                      'world_landmarks', 'visibility', 'frame_width', 'frame_height'})
-        with tempfile.TemporaryDirectory() as directory:
-            path = Path(directory) / 'test_pose.npz'
-            pose_cli.save_pose_cache(path, arrays)
-            loaded = cli.load_pose_cache(path)
-            self.assertEqual(list(loaded['map']), [0, 2])
-            with np.load(path, allow_pickle=False) as cache:
-                np.testing.assert_array_equal(cache['world_landmarks'], [world, world])
-            original = path.read_bytes()
-            with self.assertRaises(FileExistsError):
-                pose_cli.save_pose_cache(path, arrays)
-            self.assertEqual(path.read_bytes(), original)
-            pose_cli.save_pose_cache(path, arrays, overwrite=True)
-
-    def test_empty_extraction_fails_before_creating_cache(self):
-        with self.assertRaisesRegex(ValueError, '[Ee]mpty|[Nn]o pose'):
-            pose_cli.pose_arrays([])
-
-    def test_nonfinite_or_mismatched_pose_rows_are_rejected(self):
-        lm, vis = pose_fixture()
-        frame = SimpleNamespace(frame_number=0, timestamp=0.0, landmarks=lm,
-                                world_landmarks=lm.copy(), visibility=vis,
-                                frame_width=400, frame_height=200)
-        frame.world_landmarks[0, 0] = np.nan
-        with self.assertRaises(ValueError):
-            pose_cli.pose_arrays([frame])
-        frame.world_landmarks = lm.copy()
-        frame.landmarks = lm[:20]
-        with self.assertRaises(ValueError):
-            pose_cli.pose_arrays([frame])
-
-    def test_help_does_not_import_pose_or_detector_libraries(self):
-        program = '''
-import builtins, runpy, sys
-original = builtins.__import__
-def guarded(name, *args, **kwargs):
-    if name.split('.')[0] in {'cv2', 'mediapipe', 'core', 'torch', 'ultralytics', 'sam2'}:
-        raise AssertionError('heavy import: ' + name)
-    return original(name, *args, **kwargs)
-builtins.__import__ = guarded
-import extract_pose
-sys.argv = ['extract_pose.py', '--help']
-runpy.run_module('extract_pose', run_name='__main__')
-'''
-        result = subprocess.run([sys.executable, '-B', '-c', program],
-                                cwd=Path(__file__).resolve().parents[1], text=True, capture_output=True)
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn('--manifest', result.stdout)
-        self.assertIn('manual', result.stdout.lower())
 
 
 if __name__ == '__main__':

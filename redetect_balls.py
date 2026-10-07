@@ -267,7 +267,7 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--video-dir', type=Path, default=Path('input/in_in'))
     parser.add_argument('--cache-dir', type=Path, default=Path('output/scoring_cache'))
-    parser.add_argument('--manifest', type=Path, default=Path('experiments/2026-09-20/manifest.json'),
+    parser.add_argument('--manifest', type=Path, required=True,
                         help='Required manifest file (clips with non-null exclude_reason are skipped)')
     parser.add_argument('--output-dir', type=Path, default=Path('output/current/roi_candidates'))
     parser.add_argument('--model', type=Path, default=Path('yolo11s.pt'),

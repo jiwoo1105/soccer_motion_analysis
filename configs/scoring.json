@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "version": "2026-10-07-frozen-current",
+  "calibration": {
+    "headup": {
+      "min_deg": 10.225053625082124,
+      "max_deg": 15.30499039887986
+    },
+    "trunk": {
+      "reference_flexion_deg": 36.4628217436476
+    },
+    "shoulder": {
+      "reference_speed_deg_s": 93.9849170623855
+    }
+  },
+  "weights": {
+    "headup": 0.1,
+    "trunk": 0.8,
+    "shoulder": 0.1
+  }
+}

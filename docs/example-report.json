@@ -1,0 +1,284 @@
+{
+  "provenance": "Three original videos inferred locally with the pinned runtime; this documentation figure was redrawn from hash-verified caches. Source videos are not distributed.",
+  "clips": [
+    {
+      "version": "2026-10-07-frozen-current",
+      "metrics": {
+        "headup": {
+          "raw": 15.30499039887986,
+          "unit": "deg",
+          "reason": null,
+          "valid_events": 3,
+          "valid_frames": 99,
+          "valid_samples": 3,
+          "candidate_events": 5,
+          "score": 10.0,
+          "source_frames": 239
+        },
+        "trunk": {
+          "raw": 143.5943938332341,
+          "unit": "deg",
+          "reason": null,
+          "valid_frames": 237,
+          "valid_samples": 237,
+          "score": 9.984308516415991,
+          "source_frames": 239
+        },
+        "shoulder": {
+          "raw": 93.97937984951204,
+          "unit": "deg/s",
+          "valid_frames": 217,
+          "valid_pairs": 216,
+          "valid_samples": 216,
+          "reason": null,
+          "score": 9.99941084026602,
+          "source_frames": 239
+        }
+      },
+      "total": 9.987387897159396,
+      "weights": {
+        "headup": 0.1,
+        "trunk": 0.8,
+        "shoulder": 0.1
+      },
+      "calibration": {
+        "headup": {
+          "min_deg": 10.225053625082124,
+          "max_deg": 15.30499039887986
+        },
+        "trunk": {
+          "reference_flexion_deg": 36.4628217436476
+        },
+        "shoulder": {
+          "reference_speed_deg_s": 93.9849170623855
+        }
+      },
+      "quality": {
+        "warnings": [
+          "Provisional frozen relative scores; not validated skill grades. No grade training or per-video refitting.",
+          "Automatic numeric masks do not validate subject identity or left/right landmark identity; inspect the source video.",
+          "Head ball proxies retain fixed pixel thresholds (80 px jumps, 40 px/frame interpolation, 200 px ankle distance, 10 px prominence); source width 1920 px and camera framing can change acceptance.",
+          "Head ranges include upward and downward motion; ball direction changes are proxies, not confirmed contacts or gaze."
+        ],
+        "source_frames": 239,
+        "excluded_frames": 0,
+        "invalid_visibility_values": 0,
+        "missing_metrics": []
+      },
+      "video": {
+        "name": "인,인 기준1.MOV",
+        "frames": 239,
+        "width": 1920,
+        "height": 1080,
+        "fps": 29.974916387959865,
+        "clock": "source frame / average FPS",
+        "extraction_roi": null,
+        "video_sha256": "3e08af037450c0efea6998851ea26b836aa0ea0a8e367cc0fce69c863cdd8570",
+        "pose_sha256": "9182dc2a41d612e6cbc675b8a3117fa21df5cb85cd2687fdda95159ef85ed93b",
+        "candidates_sha256": "ab6272a43f83b28f9549cf7b70b19487d2356bdb771047a5c8b283bbbfe201e4",
+        "versions": {
+          "python": "3.11.12",
+          "mediapipe": "0.10.21",
+          "opencv": "4.11.0",
+          "numpy": "1.26.4",
+          "torch": "2.10.0",
+          "ultralytics": "8.4.22"
+        },
+        "pose_model_sha256": "59e42d71bcd44cbdbabc419f0ff76686595fd265419566bd4009ef703ea8e1fe",
+        "yolo_model_sha256": "85a76fe86dd8afe384648546b56a7a78580c7cb7b404fc595f97969322d502d5"
+      },
+      "provisional": true,
+      "cache_replay": true,
+      "scoring_profile": {
+        "name": "scoring.json",
+        "sha256": "06a18ad1ef836e4bd94e49b18be37ebae18cb8b4f1c137179bf4b8ca8cc7a871"
+      }
+    },
+    {
+      "version": "2026-10-07-frozen-current",
+      "metrics": {
+        "headup": {
+          "raw": 14.747729632801066,
+          "unit": "deg",
+          "reason": null,
+          "valid_events": 4,
+          "valid_frames": 132,
+          "valid_samples": 4,
+          "candidate_events": 5,
+          "score": 9.232111434403677,
+          "source_frames": 292
+        },
+        "trunk": {
+          "raw": 149.7652133460551,
+          "unit": "deg",
+          "reason": null,
+          "valid_frames": 273,
+          "valid_samples": 273,
+          "score": 8.29194922612161,
+          "source_frames": 292
+        },
+        "shoulder": {
+          "raw": 82.36560223084275,
+          "unit": "deg/s",
+          "valid_frames": 246,
+          "valid_pairs": 244,
+          "valid_samples": 244,
+          "reason": null,
+          "score": 8.763704305465305,
+          "source_frames": 292
+        }
+      },
+      "total": 8.433140954884188,
+      "weights": {
+        "headup": 0.1,
+        "trunk": 0.8,
+        "shoulder": 0.1
+      },
+      "calibration": {
+        "headup": {
+          "min_deg": 10.225053625082124,
+          "max_deg": 15.30499039887986
+        },
+        "trunk": {
+          "reference_flexion_deg": 36.4628217436476
+        },
+        "shoulder": {
+          "reference_speed_deg_s": 93.9849170623855
+        }
+      },
+      "quality": {
+        "warnings": [
+          "Provisional frozen relative scores; not validated skill grades. No grade training or per-video refitting.",
+          "Automatic numeric masks do not validate subject identity or left/right landmark identity; inspect the source video.",
+          "Head ball proxies retain fixed pixel thresholds (80 px jumps, 40 px/frame interpolation, 200 px ankle distance, 10 px prominence); source width 1920 px and camera framing can change acceptance.",
+          "Head ranges include upward and downward motion; ball direction changes are proxies, not confirmed contacts or gaze."
+        ],
+        "source_frames": 292,
+        "excluded_frames": 0,
+        "invalid_visibility_values": 0,
+        "missing_metrics": []
+      },
+      "video": {
+        "name": "인,인 7-2.MOV",
+        "frames": 292,
+        "width": 1920,
+        "height": 1080,
+        "fps": 29.974337040205302,
+        "clock": "source frame / average FPS",
+        "extraction_roi": null,
+        "video_sha256": "6895e8cc1923eb234980934e87317be78ee5a629ccd1c0e01e1590413fa8e56a",
+        "pose_sha256": "b5d6d0d58e497259b7754ff272fcca576642d3a8851e8ee441258c8bd692325f",
+        "candidates_sha256": "15e2f57efca0ff1c719f3dc6295929c9fa2f7c4649f56b00a70d2b36caae5dd5",
+        "versions": {
+          "python": "3.11.12",
+          "mediapipe": "0.10.21",
+          "opencv": "4.11.0",
+          "numpy": "1.26.4",
+          "torch": "2.10.0",
+          "ultralytics": "8.4.22"
+        },
+        "pose_model_sha256": "59e42d71bcd44cbdbabc419f0ff76686595fd265419566bd4009ef703ea8e1fe",
+        "yolo_model_sha256": "85a76fe86dd8afe384648546b56a7a78580c7cb7b404fc595f97969322d502d5"
+      },
+      "provisional": true,
+      "cache_replay": true,
+      "scoring_profile": {
+        "name": "scoring.json",
+        "sha256": "06a18ad1ef836e4bd94e49b18be37ebae18cb8b4f1c137179bf4b8ca8cc7a871"
+      }
+    },
+    {
+      "version": "2026-10-07-frozen-current",
+      "metrics": {
+        "headup": {
+          "raw": 11.036884758058584,
+          "unit": "deg",
+          "reason": null,
+          "valid_events": 4,
+          "valid_frames": 132,
+          "valid_samples": 4,
+          "candidate_events": 4,
+          "score": 4.1186788702070345,
+          "source_frames": 240
+        },
+        "trunk": {
+          "raw": 151.40101288767556,
+          "unit": "deg",
+          "reason": null,
+          "valid_frames": 214,
+          "valid_samples": 214,
+          "score": 7.843328010484222,
+          "source_frames": 240
+        },
+        "shoulder": {
+          "raw": 84.56406853132286,
+          "unit": "deg/s",
+          "valid_frames": 218,
+          "valid_pairs": 217,
+          "valid_samples": 217,
+          "reason": null,
+          "score": 8.997621232691065,
+          "source_frames": 240
+        }
+      },
+      "total": 7.586292418677188,
+      "weights": {
+        "headup": 0.1,
+        "trunk": 0.8,
+        "shoulder": 0.1
+      },
+      "calibration": {
+        "headup": {
+          "min_deg": 10.225053625082124,
+          "max_deg": 15.30499039887986
+        },
+        "trunk": {
+          "reference_flexion_deg": 36.4628217436476
+        },
+        "shoulder": {
+          "reference_speed_deg_s": 93.9849170623855
+        }
+      },
+      "quality": {
+        "warnings": [
+          "Provisional frozen relative scores; not validated skill grades. No grade training or per-video refitting.",
+          "Automatic numeric masks do not validate subject identity or left/right landmark identity; inspect the source video.",
+          "Head ball proxies retain fixed pixel thresholds (80 px jumps, 40 px/frame interpolation, 200 px ankle distance, 10 px prominence); source width 1920 px and camera framing can change acceptance.",
+          "Head ranges include upward and downward motion; ball direction changes are proxies, not confirmed contacts or gaze."
+        ],
+        "source_frames": 240,
+        "excluded_frames": 0,
+        "invalid_visibility_values": 0,
+        "missing_metrics": []
+      },
+      "video": {
+        "name": "인,인 3-1.MOV",
+        "frames": 240,
+        "width": 1920,
+        "height": 1080,
+        "fps": 29.975020815986678,
+        "clock": "source frame / average FPS",
+        "extraction_roi": null,
+        "video_sha256": "d7965e77809629ecd235623d558254745409d6178450299bce6547d17f6f8fa4",
+        "pose_sha256": "dd7cbd7c2b8c729fef3d85a47b33406b1cf6d1807db5162753e55ea64c1b2eb4",
+        "candidates_sha256": "e4594a832aacf142ed503c481bdc0e5f56e6a9fe9df4009175d09e5834c72916",
+        "versions": {
+          "python": "3.11.12",
+          "mediapipe": "0.10.21",
+          "opencv": "4.11.0",
+          "numpy": "1.26.4",
+          "torch": "2.10.0",
+          "ultralytics": "8.4.22"
+        },
+        "pose_model_sha256": "59e42d71bcd44cbdbabc419f0ff76686595fd265419566bd4009ef703ea8e1fe",
+        "yolo_model_sha256": "85a76fe86dd8afe384648546b56a7a78580c7cb7b404fc595f97969322d502d5"
+      },
+      "provisional": true,
+      "cache_replay": true,
+      "scoring_profile": {
+        "name": "scoring.json",
+        "sha256": "06a18ad1ef836e4bd94e49b18be37ebae18cb8b4f1c137179bf4b8ca8cc7a871"
+      }
+    }
+  ]
+}

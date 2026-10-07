@@ -1,0 +1,40 @@
+{
+  "cloned_commit": "28a81f5bfa1fcb5bf49c43b518680bd4e7c418b5",
+  "fresh_total": 9.987387897159396,
+  "reweighted_total": 9.990526193876196,
+  "raw_measurements_unchanged": true,
+  "blank_total": null,
+  "blank_metrics": {
+    "headup": {
+      "raw": null,
+      "unit": "deg",
+      "reason": "Need at least 2 accepted ball proxies with complete ±16 head support; found 0.",
+      "valid_events": 0,
+      "valid_frames": 0,
+      "valid_samples": 0,
+      "candidate_events": 0,
+      "score": null,
+      "source_frames": 40
+    },
+    "trunk": {
+      "raw": null,
+      "unit": "deg",
+      "reason": "No valid bilateral knee–hip–shoulder frames.",
+      "valid_frames": 0,
+      "valid_samples": 0,
+      "score": null,
+      "source_frames": 40
+    },
+    "shoulder": {
+      "raw": null,
+      "unit": "deg/s",
+      "valid_frames": 0,
+      "valid_pairs": 0,
+      "valid_samples": 0,
+      "reason": "No adjacent supported shoulder frames: need a valid run of at least 24 frames, 11-frame end guards, and common SG9/13/21 support.",
+      "score": null,
+      "source_frames": 40
+    }
+  },
+  "elapsed_seconds": 112.53
+}

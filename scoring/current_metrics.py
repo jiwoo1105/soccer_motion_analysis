@@ -1,20 +1,13 @@
-"""September 2026 experimental metrics on the original source-frame clock.
+"""Source-frame pose loading and ball direction-change head proxies.
 
-No model loading, grade fitting, output-directory imports or cache mutation.
-Body alignment is a projected 2D quantity, not a 3D rotation angle.
+Model-free helpers shared by cache replay and release scoring. The head helper
+retains its original ±8 acceptance window; release_metrics expands accepted
+events to ±16 for the current measurement.
 """
 from pathlib import Path
-import unicodedata
 
 import numpy as np
 from scipy.signal import find_peaks, savgol_filter
-
-VERSION = '2026-09-20-relative-alignment-roi'
-DEFAULT_WEIGHTS = {'headup': 1 / 3, 'trunk': 1 / 3, 'body': 1 / 3}
-
-
-def nfc(value):
-    return unicodedata.normalize('NFC', str(value))
 
 
 def runs(mask):
@@ -44,47 +37,6 @@ def load_pose(path, source_frames):
             arr[frames] = values
             pose[dest] = arr
     return pose
-
-
-def body_alignment(pose, window=9):
-    """P95-P5 of the normalized determinant, using common 13-frame support."""
-    if window not in (5, 9, 13):
-        raise ValueError('Supported body smoothing windows are 5, 9 and 13')
-    xy = pose['lm'][:, :, :2] * [pose['width'], pose['height']]
-    sh, pe = xy[:, 12] - xy[:, 11], xy[:, 24] - xy[:, 23]
-    spine = (xy[:, 11] + xy[:, 12] - xy[:, 23] - xy[:, 24]) / 2
-    length = np.linalg.norm(spine, axis=1)
-    ids = [11, 12, 23, 24]
-    valid = (pose['vis'][:, ids] >= .5).all(axis=1) & np.isfinite(xy[:, ids]).all(axis=(1, 2)) & (length > 1)
-    raw = (sh[:, 0] * pe[:, 1] - sh[:, 1] * pe[:, 0]) / np.maximum(length ** 2, 1e-9)
-    raw[~valid] = np.nan
-    signal = np.full(pose['n'], np.nan)
-    mask = np.zeros(pose['n'], bool)
-    for ix in runs(valid):
-        if len(ix) < 13:
-            continue
-        signal[ix] = savgol_filter(raw[ix], window, 2)
-        mask[ix[6:-6]] = True
-    values = signal[mask]
-    # One sample cannot establish a variation range. Coverage/duration still
-    # require review: this structural minimum is not a validated quality cutoff.
-    measurement = float(np.percentile(values, 95) - np.percentile(values, 5)) if len(values) >= 2 else None
-    return dict(M=measurement, signal=signal, mask=mask, valid_frames=int(mask.sum()), source_frames=pose['n'])
-
-
-def trunk_angle(pose):
-    """Mean left/right knee-hip-shoulder angle, retaining the existing formula."""
-    world, vis = pose['world'], pose['vis']
-    ids = [25, 23, 11, 26, 24, 12]
-    good = (vis[:, ids] >= .5).all(axis=1) & np.isfinite(world[:, ids]).all(axis=(1, 2))
-    angles = []
-    for knee, hip, shoulder in [(25, 23, 11), (26, 24, 12)]:
-        u, v = world[:, knee] - world[:, hip], world[:, shoulder] - world[:, hip]
-        nu, nv = np.linalg.norm(u, axis=1), np.linalg.norm(v, axis=1)
-        good &= (nu > 0) & (nv > 0)
-        u, v = u / (nu[:, None] + 1e-10), v / (nv[:, None] + 1e-10)
-        angles.append(np.degrees(np.arccos(np.clip(np.sum(u * v, axis=1), -1, 1))))
-    return float(np.mean(np.mean(angles, axis=0)[good])) if good.any() else None
 
 
 def choose_ball(record):
@@ -177,32 +129,3 @@ def analyze_headup(pose, candidates):
                 events=events, rejected=rejected, candidate_count=len(chosen),
                 observed_fraction=float(observed.mean()), imputed_fraction=float(imputed.mean()),
                 jumps=jumps, head_angles=head, head_valid=head_ok, observed_ball=selected, ball=track, smooth_x=smooth)
-
-
-def head_timing_sensitivity(head):
-    """Compare ±2-frame shifts on the same events with valid support at all shifts."""
-    angles, valid = head['head_angles'], head['head_valid']
-    centers = [event['frame'] for event in head['events']
-               if event['frame'] >= 10 and event['frame'] + 10 < len(angles)
-               and valid[event['frame']-10:event['frame']+11].all()]
-    means = [float(np.mean([np.ptp(angles[t+s-8:t+s+9]) for t in centers]))
-             if len(centers) >= 2 else None for s in range(-2, 3)]
-    return dict(shifts=list(range(-2, 3)), common_event_count=len(centers), means=means)
-
-
-def score_measurements(row, calibration):
-    def proximity(value, parameters):
-        if value is None or not np.isfinite(value): return None
-        opt, tau = parameters['opt'], parameters['tau']
-        if not np.isfinite([opt, tau]).all() or tau <= 0:
-            raise ValueError('Calibration opt/tau must be finite; tau must be positive')
-        return float(np.clip(10 * (1 - abs(value - opt) / tau), 0, 10))
-    ref = calibration['body_reference_mean']
-    if not np.isfinite(ref) or ref <= 0:
-        raise ValueError('body_reference_mean must be finite and positive')
-    body = row['body_M']
-    scores = dict(head_score=proximity(row['head_raw'], calibration['headup']),
-                  trunk_score=proximity(row['trunk_raw'], calibration['trunk']),
-                  body_score=float(np.clip(10 * body / ref, 0, 10)) if body is not None and np.isfinite(body) else None)
-    scores['total'] = sum(scores.values()) / 3 if all(v is not None for v in scores.values()) else None
-    return scores

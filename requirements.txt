@@ -1,10 +1,2 @@
-# Existing mp.solutions.pose extraction / legacy visualization (Python 3.9).
-# Numeric evaluation and current ROI inference have separate requirements files.
-mediapipe==0.10.21
-numpy>=1.26,<2
-opencv-python==4.11.0.86
-opencv-contrib-python==4.11.0.86
-ultralytics==8.3.224
-scipy>=1.13,<1.14
-matplotlib>=3.7,<3.10
-tqdm>=4.65,<5
+# Original video to PNG/HTML/JSON report. Python 3.11.
+-r requirements-runtime.txt

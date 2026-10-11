@@ -223,7 +223,7 @@ $$
 여기서 ×와 내적 기호는 각각 외적과 내적이다. atan2는 두 벡터 사이의 각도를 구하며, 180/π는 라디안을 도로 변환한다. f_fps는 초당 프레임 수이고, δ⁽ᵗ⁾와 ω⁽ᵗ⁾의 단위는 각각 °와 °/s이다.
 ![](images/shoulder-paper-frames.png)
 그림. 연속된 두 프레임의 어깨 벡터(상단)와 평활화된 3차원 단위 방향 벡터(하단).
-공 터치 시점은 3.4절의 YOLOv8 및 SAM2 기반 공 추적 결과에서 구한다. k번째 터치의 원본 프레임을 t_k, 어깨 집계 반범위를 B_sh로 두고, 터치 구간 𝒲_k와 집계할 인접 프레임 쌍의 집합 𝒫_sh를 다음과 같이 정의한다.
+공 터치 시점은 3.4절의 YOLOv8 및 SAM2 기반 공 추적 결과에서 구한다. k번째 터치 시점의 프레임을 t_k, 터치 시점 앞뒤로 각각 선택하는 프레임 수를 B_sh로 두고, 터치 구간 𝒲_k와 집계할 인접 프레임 쌍의 집합 𝒫_sh를 다음과 같이 정의한다.
 $$
 \color{#387dc9}{\mathcal W_k=\{t:|t-t_k|\le B_{\mathrm{sh}}\},\qquad \mathcal P_{\mathrm{sh}}=\bigcup_k\{t\in\mathcal P:t-1,t\in\mathcal W_k\}}
 $$
@@ -231,8 +231,7 @@ $$
 $$
 \color{#387dc9}{V_{\mathrm{touch}}=\frac{1}{|\mathcal P_{\mathrm{sh}}|}\sum_{t\in\mathcal P_{\mathrm{sh}}}\omega^{(t)}}
 $$
-V_touch는 터치 구간의 어깨 평균 방향 변화 속도이며 단위는 °/s이다. |𝒫_sh|는 집계한 유효 쌍의 수이다. 터치 구간이 겹쳐도 같은 쌍은 한 번만 평균하며, 결측이나 제외 프레임을 건너뛰어 연결하지 않는다. 유효 터치나 유효 쌍이 없으면 값을 산출하지 않는다.
-V_touch가 클수록 선택 구간에서 어깨 벡터의 방향이 평균적으로 빠르게 바뀜을 뜻한다. 공의 진행 방향과 회전 방향의 일치를 직접 측정하지는 않으며, 어깨의 수평 회전과 기울기 변화 및 단안 깊이 추정 오차가 함께 반영될 수 있다.
+여기서 V_touch는 터치 구간의 어깨 평균 방향 변화 속도(°/s)이며, |𝒫_sh|는 집계한 유효 프레임 쌍의 수이다.
 
 ## 참고문헌
 \[1\] V. Bazarevsky, I. Grishchenko, K. Raveendran, T. Zhu, F. Zhang, and M. Grundmann, "BlazePose: On-device Real-time Body Pose Tracking," arXiv preprint arXiv:2006.10204, 2020.

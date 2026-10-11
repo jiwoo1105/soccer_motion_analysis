@@ -339,7 +339,7 @@ def _source_centers(centers, n, name):
     return sorted(set(checked))
 
 
-def summarize_touch_window_speed(geo_speed, centers, window_halfwidth_frames=30, *, pair_support=None):
+def summarize_touch_window_speed(geo_speed, centers, window_halfwidth_frames=16, *, pair_support=None):
     """Summarize original adjacent-pair speeds in the union of touch windows.
 
     ``geo_speed[i]`` belongs to source pair (i-1, i); index zero is never used.
@@ -400,7 +400,7 @@ def measure_video(pose, candidates, fps, calibration=None, weights=None, exclude
     weights: dictionary with headup/trunk/shoulder, nonnegative, summing to 1.
     excluded_frames: source-frame integer indices or an N-element bool mask,
     applied to all metrics; no video aliases or historical exclusions are used.
-    measurement: shoulder aggregation and window_halfwidth_frames (default 30).
+    measurement: shoulder aggregation and window_halfwidth_frames (default 16).
     A full calibration profile supplies its own measurement when omitted;
     conflicting explicit settings are rejected, never silently overridden.
     touch_frames: optional original source-frame integer centers for SHOULDER

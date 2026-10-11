@@ -112,7 +112,7 @@ def architecture(out, research=False):
                               edgecolor='black', linewidth=.8))
         text(x+110, 794, title, weight='bold')
         text(x+110, 849, body)
-    text(400, 943, r'$\Delta=16,\quad B_{\mathrm{sh}}=30$', size=9)
+    text(400, 943, r'$\Delta=16,\quad B_{\mathrm{sh}}=16$', size=9)
     path([(400, 970), (400, 1040)])
     box(270, 1040, 260, 64, '평가지표 산출값',
         r'$S_{\mathrm{trunk}},\ S_{\mathrm{head}},\ V_{\mathrm{touch}}$', rounded=True)

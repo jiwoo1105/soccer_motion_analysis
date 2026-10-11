@@ -51,11 +51,13 @@ class ReleaseMetricsTests(unittest.TestCase):
         sh = result['metrics']['shoulder']
         self.assertAlmostEqual(sh['raw'], 30., places=8)
         self.assertEqual(sh['unit'], 'deg/s')
-        self.assertEqual(sh['valid_frames'], 158)
-        self.assertEqual(sh['valid_pairs'], 157)
+        # Last touch at 150: ±16 ends at 166; SG support starts at 11.
+        self.assertEqual(sh['valid_frames'], 156)
+        self.assertEqual(sh['valid_pairs'], 155)
         diag = result['diagnostics']['shoulder']
         np.testing.assert_array_equal(np.flatnonzero(diag['support']), np.arange(11, 169))
         np.testing.assert_array_equal(np.flatnonzero(diag['pair_support']), np.arange(12, 169))
+        np.testing.assert_array_equal(np.flatnonzero(diag['selected_pair_support']), np.arange(12, 167))
         self.assertTrue(np.isnan(diag['geo_speed'][~diag['pair_support']]).all())
 
     def test_arbitrary_rest_direction_has_exactly_zero_speed(self):
@@ -228,11 +230,11 @@ class ReleaseMetricsTests(unittest.TestCase):
     def test_default_and_override_weight_totals_use_unrounded_component_scores(self):
         p, c = pose_fixture(), balls()
         r = self.measure(p, c, 30.)
-        want = .1 * 3 + .8 * (10 * 30 / 36.4628217436476) + .1 * (10 * 30 / 95.06803615376751)
+        want = .1 * 3 + .8 * (10 * 30 / 36.4628217436476) + .1 * (10 * 30 / 96.65652026544726)
         self.assertAlmostEqual(r['total'], want, places=8)
         self.assertEqual(r['weights'], {'headup': .1, 'trunk': .8, 'shoulder': .1})
         r = self.measure(p, c, 30., weights={'headup': .3, 'trunk': .6, 'shoulder': .1})
-        self.assertAlmostEqual(r['total'], .3 * 3 + .6 * (10 * 30 / 36.4628217436476) + .1 * (10 * 30 / 95.06803615376751), places=8)
+        self.assertAlmostEqual(r['total'], .3 * 3 + .6 * (10 * 30 / 36.4628217436476) + .1 * (10 * 30 / 96.65652026544726), places=8)
 
     def test_frozen_config_can_be_supplied_explicitly(self):
         config = json.loads((Path(__file__).resolve().parents[1] / 'configs/scoring.json').read_text())

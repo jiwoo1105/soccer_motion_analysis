@@ -89,7 +89,7 @@ def test_cli_passes_profile_window_to_measurement_and_publishes_actual_settings(
     report = json.loads((output / 'report.json').read_text())
     clip = report['clips'][0]
     assert report['measurement'] == clip['measurement'] == measurement(2)
-    assert report['version'] == clip['version'] == '2026-10-11-sam2-touch-window'
+    assert report['version'] == clip['version'] == '2026-10-11-sam2-touch16'
     assert clip['metrics']['shoulder']['valid_pairs'] == 24
     assert clip['diagnostics']['shoulder']['whole_pairs'] == 157
     assert clip['scoring_profile']['sha256'] == sha256(calibration)

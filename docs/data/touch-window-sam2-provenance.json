@@ -1,11 +1,5 @@
 {
-  "best": {
-    "halfwidth": 30,
-    "exclude_references": false,
-    "n": 11,
-    "rho": 0.6023386417319309
-  },
-  "reference": 95.06803615376751,
+  "reference": 96.65652026544726,
   "hashes": {
     "인,인 3-1_ball.json": "55aa5f157b0a0406cbdf55ebcec7d993727173f97816b4380e1d7cebef2fc86b",
     "인,인 3-2_ball.json": "2f49c820d49cc6871d1900aa158aa120f0a9a15fbfb9b3c7776f00a48e648f2a",
@@ -29,5 +23,18 @@
     "head_calibration": "Existing fixed operating anchors preserved, originally determined from ROI study. Not independently calibrated for SAM2.",
     "frames": "source indices; overlapping shoulder pairs once; raw detector ball gaps legacy compacted"
   },
-  "selection": "Six prespecified halfwidths 6,10,16,20,24,30; highest all-11-video raw-speed Spearman; ties use shorter window. Exploratory reused sample, not independent performance."
+  "selection": "Use ±16 source frames to match the head-up temporal window (max 33 frames). Design choice for common touch context, not a maximum-grade-separation or independently validated optimal window. Previous ±30 rank-correlation selection retained under historical_best.",
+  "historical_best": {
+    "halfwidth": 30,
+    "exclude_references": false,
+    "n": 11,
+    "rho": 0.6023386417319309
+  },
+  "historical_reference_30": 95.06803615376751,
+  "selected": {
+    "halfwidth": 16,
+    "n": 11,
+    "rho": 0.5517605878460434,
+    "rho_excluding_references": 0.17799166970046273
+  }
 }

@@ -188,7 +188,7 @@ def test_custom_window_keeps_constant_physical_speed_at_each_fps(fps):
     assert result['metrics']['shoulder']['raw'] == pytest.approx(30., abs=1e-8)
     assert result['metrics']['shoulder']['valid_pairs'] == 24
     assert result['metrics']['shoulder']['valid_frames'] == 30
-    assert result['metrics']['shoulder']['score'] == pytest.approx(10 * 30 / 95.06803615376751)
+    assert result['metrics']['shoulder']['score'] == pytest.approx(10 * 30 / 96.65652026544726)
 
 
 def test_custom_window_changes_only_shoulder_aggregation_and_preserves_whole_speed():
@@ -198,9 +198,9 @@ def test_custom_window_changes_only_shoulder_aggregation_and_preserves_whole_spe
     p['world'][:, 11], p['world'][:, 12] = -.2 * direction, .2 * direction
     whole = metrics.measure_video(p, balls(), 30.)
     narrow = metrics.measure_video(p, balls(), 30., measurement=measurement(2))
-    assert whole['measurement'] == measurement(30)
+    assert whole['measurement'] == measurement(16)
     assert narrow['measurement'] == measurement(2)
-    assert narrow['version'] == '2026-10-11-sam2-touch-window'
+    assert narrow['version'] == '2026-10-11-sam2-touch16'
     for key in ('headup', 'trunk'):
         assert narrow['metrics'][key] == whole['metrics'][key]
     a, b = whole['diagnostics']['shoulder'], narrow['diagnostics']['shoulder']

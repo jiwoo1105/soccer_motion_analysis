@@ -41,3 +41,14 @@ Apple M4 Pro, macOS 26.5.2, Python 3.11.12에서 실행했습니다. YOLOv8과 S
 Linux GitHub Actions는 모델 없는 테스트를 실행합니다. Windows/Linux의 실제 모델 추론과 장치 간 수치 일치는 검증하지 않았습니다. 자동 터치 후보를 독립 전문가 GT로 판정한 기록도 아닙니다.
 
 [과거 ROI 버전 검증 기록](https://github.com/jiwoo1105/soccer_motion_analysis/blob/d6b06c1/docs/validation.md)은 현재 SAM2 실행과 구분합니다.
+
+## 별도 GitHub clone 확인
+
+GitHub의 `codex/touch-window-shoulder` 브랜치를 `--depth 1`로 새 폴더에 clone해 다시 확인했습니다. 기존에 검증한 Python 3.11 가상환경을 사용했으며, 새로운 빈 가상환경에 의존성을 모두 재설치한 검사는 아닙니다.
+
+- 테스트 215개 통과.
+- 공식 로컬 모델 3개 설치와 `setup_models.py --check` 성공.
+- 실제 영상의 검증된 SAM2 캐시를 재사용했을 때 원시값 유지. 비중 30/60/10의 총점과 반올림 전 가중합 일치.
+- 사람 없는 40프레임 입력을 기본 경로로 새 추론하여 모든 항목과 총점 N/A 확인.
+
+[기계 판독용 검증 기록](clone-validation.json)에 코드 커밋과 검사 범위를 기록했습니다.

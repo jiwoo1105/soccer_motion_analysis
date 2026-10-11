@@ -12,7 +12,7 @@ import numpy as np
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-from matplotlib.patches import Rectangle, FancyArrowPatch
+from matplotlib.patches import Rectangle, FancyArrowPatch, FancyBboxPatch
 from matplotlib import font_manager
 
 
@@ -27,44 +27,102 @@ def style():
 
 
 def architecture(out, research=False):
-    fig, ax = plt.subplots(figsize=(10, 10))
-    ax.set(xlim=(0, 10), ylim=(0, 10)); ax.axis('off')
-    blue = '#245b91'
-    def box(x, y, w, h, text, c='#222222'):
-        ax.add_patch(Rectangle((x, y), w, h, fill=False, ec=c, lw=1.1))
-        ax.text(x+w/2, y+h/2, text, ha='center', va='center', color=c, linespacing=1.65)
-    def arrow(points, color='#222222', style='-'):
-        for a,b in zip(points[:-2],points[1:-1]):
-            ax.plot([a[0],b[0]],[a[1],b[1]],color=color,lw=1,ls=style)
-        ax.add_patch(FancyArrowPatch(points[-2],points[-1],arrowstyle='-|>',mutation_scale=12,
-                                    color=color,lw=1,linestyle=style))
-    box(3.3,9.1,3.4,.65,'입력 영상\n단안 카메라, 후방 촬영')
-    box(.8,7.45,3.3,1.05,'관절 좌표 추출\nOpenCV → MediaPipe Pose\nimage / world landmarks')
-    ball='공 추적\nYOLOv8 초기 검출 → SAM2\n공 중심 좌표' if research else '공 검출\nYOLO11s, 발목 주변 ROI\n원본 좌표의 공 후보'
-    box(5.9,7.45,3.3,1.05,ball)
-    arrow([(4,9.1),(2.45,8.5)]);arrow([(6,9.1),(7.55,8.5)])
-    box(5.9,5.75,3.3,1.0,'터치 시점 감지\n공의 수평 방향 전환 + 발 근접\n'+r'$t_k$')
-    arrow([(7.55,7.45),(7.55,6.75)])
-    arrow([(4.1,7.75),(4.8,7.75),(4.8,6.25),(5.9,6.25)])
-    ax.text(4.83,6.8,'발목',fontsize=9,ha='left')
-    # Pose bus supplies all three metrics, independent of the touch bus.
-    arrow([(2.45,7.45),(2.45,4.65),(1.6,4.65),(1.6,3.45)])
-    arrow([(2.45,4.65),(4.9,4.65),(4.9,3.45)])
-    arrow([(4.9,4.65),(8.2,4.65),(8.2,3.45)])
-    ax.text(2.6,4.78,'관절 좌표',fontsize=10)
-    # Touch bus terminates at head and shoulder, never trunk.
-    arrow([(7.55,5.75),(7.55,5.2),(9.5,5.2),(9.5,2.9),(9.3,2.9)],blue)
-    arrow([(7.55,5.2),(5.25,5.2),(5.25,3.45)],blue)
-    ax.text(5.3,5.32,'터치 시점 → 구간 선택',fontsize=10,color=blue)
-    box(.25,1.75,2.7,1.7,'상체 각도\n좌우 무릎–엉덩이–어깨\n유효 프레임 평균\n'+r'$S_{\mathrm{trunk}}$')
-    box(3.55,1.75,2.7,1.7,'헤드업 범위\n머리 벡터와 수직축의 각도\n'+r'$t_k\pm\Delta$'+' 내 범위 평균\n'+r'$S_{\mathrm{head}}$')
-    box(6.6,1.75,2.7,1.7,'어깨 방향 변화 속도\nSG 평활화한 3D 단위 벡터\n'+r'$t_k\pm B_{\mathrm{sh}}$'+' 내 속도 평균\n'+r'$V_{\mathrm{touch}}$',blue)
-    box(3.15,.2,3.7,.75,'항목별 원시값 → 점수 환산\n고정 가중합 / 측정 불가 시 N/A')
-    for x in (1.6,4.9,8.0):
-        arrow([(x,1.75),(x,1.28),(5,1.28),(5,.95)])
-    fig.tight_layout(pad=.4)
-    name='paper-touch-window-architecture' if research else 'touch-window-architecture'
-    for ext in ('png','svg'):fig.savefig(out/f'{name}.{ext}',dpi=180,bbox_inches='tight')
+    """Paper overview in the original monochrome, four-stage layout.
+
+    Landmarks supply the metric stage as a whole. Touch frames select only
+    head and shoulder windows; raw ball coordinates never enter either metric.
+    """
+    fig, ax = plt.subplots(figsize=(8, 11.1))
+    ax.set(xlim=(-8, 808), ylim=(1110, -8))
+    ax.axis('off')
+
+    def text(x, y, value, size=9, weight='normal', ha='center'):
+        ax.text(x, y, value, fontsize=size, fontweight=weight,
+                ha=ha, va='center', color='black', linespacing=1.35)
+
+    def box(x, y, w, h, title, body='', fill='white', dashed=False,
+            rounded=False):
+        kw = dict(facecolor=fill, edgecolor='black', linewidth=.8,
+                  linestyle=(0, (2.5, 2.5)) if dashed else '-')
+        patch = (FancyBboxPatch((x, y), w, h,
+                 boxstyle='round,pad=0,rounding_size=13', **kw)
+                 if rounded else Rectangle((x, y), w, h, **kw))
+        ax.add_patch(patch)
+        text(x+w/2, y+h/2-8 if body else y+h/2, title,
+             weight='bold' if rounded or fill != 'white' else 'normal')
+        if body:
+            text(x+w/2, y+h/2+9, body)
+
+    def group(x, y, w, h, title):
+        ax.add_patch(Rectangle((x, y), w, h, facecolor='none',
+                     edgecolor='#555555', linewidth=.65, linestyle=(0, (8, 7))))
+        text(x+8, y+21, title, weight='bold', ha='left')
+
+    def path(points, dashed=False, arrow=True):
+        ls = (0, (3, 3)) if dashed else '-'
+        # A single polyline keeps the original fine, uninterrupted connectors.
+        ax.plot(*zip(*points), color='black', lw=.7, linestyle=ls)
+        if arrow:
+            ax.add_patch(FancyArrowPatch(points[-2], points[-1],
+                         arrowstyle='-|>', mutation_scale=10,
+                         color='black', lw=.7, linestyle=ls,
+                         shrinkA=0, shrinkB=0))
+
+    box(270, 0, 260, 64, '입력 영상', '(단안 카메라, 후방 시점)', rounded=True)
+    group(20, 110, 320, 350, '(1) 관절 좌표 추출')
+    group(460, 110, 320, 350, '(2) 공 추적')
+    box(90, 160, 180, 55, 'OpenCV', '(BGR → RGB)')
+    ball_title = 'YOLOv8' if research else 'YOLO11s'
+    ball_detail = '(초기 공 위치 검출)' if research else '(발목 주변 ROI 공 검출)'
+    box(530, 160, 180, 55, ball_title, ball_detail)
+    path([(355, 64), (180, 160)])
+    path([(445, 64), (620, 160)])
+    box(80, 270, 200, 60, 'MediaPipe Pose', '(model_complexity=2)', fill='#d3d3d3')
+    box(520, 270, 200, 60, 'SAM2' if research else '프레임별 공 후보',
+        '(마스크 기반 공 추적)' if research else '(원본 좌표 복원)', fill='#d3d3d3')
+    box(70, 380, 220, 60, '33개 관절 랜드마크', '(이미지 2D + 월드 3D)', dashed=True)
+    box(510, 380, 220, 60, '공 궤적', '(cx, cy, 반지름/프레임)', dashed=True)
+    for x in (180, 620):
+        path([(x, 215), (x, 270)])
+        path([(x, 330), (x, 380)])
+
+    group(200, 510, 400, 120, '(3) 터치 시점 감지')
+    box(240, 550, 320, 60, '터치 감지', '(방향 전환 + 발 근접도)', fill='#bfbfbf')
+    path([(180, 440), (180, 495), (365, 495), (365, 550)], dashed=True)
+    path([(620, 440), (620, 495), (480, 495), (480, 550)])
+
+    group(0, 680, 800, 290, '(4) 평가지표 산출')
+    # One input to the whole stage avoids repeating the same pose connection
+    # to all three boxes. The stage subtitle makes the common input explicit.
+    path([(125, 440), (125, 490), (150, 490), (150, 680)])
+    text(160, 653, '관절 좌표', size=8, ha='left')
+    text(18, 725, '월드 3D 관절 좌표 사용', size=8, ha='left')
+    # Branch touch frames to head and shoulder only, in black dashed lines.
+    path([(400, 610), (400, 760)], dashed=True)
+    path([(400, 657), (650, 657), (650, 760)], dashed=True)
+    text(420, 642, '터치 프레임', size=8, ha='left')
+
+    metric_boxes = [
+        (40, '1. 상체 각도', '무릎–엉덩이–어깨\n(월드 3D)\n전체 유효 프레임 평균'),
+        (290, '2. 헤드업 범위', '어깨–눈 각도\n(월드 3D, Y축)\n' + r'터치 $\pm\Delta$ 프레임 범위'),
+        (540, '3. 어깨 방향 변화 속도', '어깨 벡터 (월드 3D)\nSG 평활화 후 방향 변화 속도\n' + r'터치 $\pm B_{\mathrm{sh}}$ 프레임 평균'),
+    ]
+    for x, title, body in metric_boxes:
+        ax.add_patch(Rectangle((x, 760), 220, 150, facecolor='white',
+                              edgecolor='black', linewidth=.8))
+        text(x+110, 794, title, weight='bold')
+        text(x+110, 849, body)
+    text(400, 943, r'$\Delta=16,\quad B_{\mathrm{sh}}=30$', size=9)
+    path([(400, 970), (400, 1040)])
+    box(270, 1040, 260, 64, '평가지표 산출값',
+        r'$S_{\mathrm{trunk}},\ S_{\mathrm{head}},\ V_{\mathrm{touch}}$', rounded=True)
+    fig.subplots_adjust(left=.015, right=.985, bottom=.005, top=.995)
+    name = 'paper-touch-window-architecture' if research else 'touch-window-architecture'
+    for ext in ('png', 'svg'):
+        target = out/f'{name}.{ext}'
+        fig.savefig(target, dpi=200, facecolor='white')
+        if ext == 'svg':
+            target.write_text('\n'.join(line.rstrip() for line in target.read_text().splitlines()) + '\n')
     plt.close(fig)
 
 

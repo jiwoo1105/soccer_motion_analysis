@@ -20,6 +20,7 @@ _CONFIG = json.loads((Path(__file__).resolve().parents[1] / 'configs/scoring.jso
 VERSION = _CONFIG['version']
 DEFAULT_CALIBRATION = _CONFIG['calibration']
 DEFAULT_WEIGHTS = _CONFIG['weights']
+DEFAULT_MEASUREMENT = _CONFIG['measurement']
 _KEYS = {'headup', 'trunk', 'shoulder'}
 
 
@@ -84,13 +85,41 @@ def _exclusions(value, n):
     return mask
 
 
-def validate_parameters(calibration=None, weights=None):
+def validate_measurement(measurement=None):
+    """Validate source-frame measurement settings and return a fresh mapping."""
+    measurement = DEFAULT_MEASUREMENT if measurement is None else measurement
+    if not isinstance(measurement, Mapping) or set(measurement) != {'shoulder'}:
+        raise ValueError('measurement must have exactly the shoulder key')
+    shoulder = measurement['shoulder']
+    if not isinstance(shoulder, Mapping) or set(shoulder) != {'aggregation', 'window_halfwidth_frames'}:
+        raise ValueError('measurement.shoulder requires aggregation and window_halfwidth_frames')
+    if shoulder['aggregation'] != 'touch_window_mean':
+        raise ValueError('measurement.shoulder.aggregation must be touch_window_mean')
+    halfwidth = _integer(shoulder['window_halfwidth_frames'],
+                         'measurement.shoulder.window_halfwidth_frames', minimum=1)
+    return dict(shoulder=dict(aggregation='touch_window_mean', window_halfwidth_frames=halfwidth))
+
+
+def _resolve_measurement(calibration, measurement):
+    if isinstance(calibration, Mapping) and 'calibration' in calibration:
+        if _integer(calibration.get('schema_version'), 'scoring profile schema_version') != 2:
+            raise ValueError('Unsupported scoring profile schema_version: touch-window scoring requires schema 2')
+        if calibration.get('measurement') is None:
+            raise ValueError('Scoring profile requires explicit measurement settings')
+        configured = validate_measurement(calibration['measurement'])
+        if measurement is not None and validate_measurement(measurement) != configured:
+            raise ValueError('Explicit measurement settings must match the calibration profile measurement')
+        return configured
+    return validate_measurement(measurement)
+
+
+def validate_parameters(calibration=None, weights=None, *, measurement=None):
     """Preflight anchors and weights without inference; return fresh (c, w).
 
     calibration accepts the complete JSON profile or its calibration field.
     Supply the profile's weights explicitly when using a custom profile.
     """
-    calibration = validate_calibration(calibration)
+    calibration = validate_calibration(calibration, measurement=measurement)
     weights = DEFAULT_WEIGHTS if weights is None else weights
     if not isinstance(weights, Mapping) or set(weights) != _KEYS:
         raise ValueError('weights must have exactly headup, trunk, shoulder keys')
@@ -100,14 +129,18 @@ def validate_parameters(calibration=None, weights=None):
     return calibration, w
 
 
-def validate_calibration(calibration=None):
+def validate_calibration(calibration=None, *, measurement=None):
     """Validate before inference; return a fresh three-metric calibration dict.
 
     Accept either the complete configs/scoring.json document or its
     ``calibration`` field. Weights are separately validated by measure_video.
+    Full profiles must declare schema 2 and touch-window measurement settings.
+    An explicit measurement must agree with the full profile. Bare anchor
+    mappings remain supported; the caller owns their calibration provenance.
     This only validates supplied anchors; it never learns or refits them.
     """
     calibration = DEFAULT_CALIBRATION if calibration is None else calibration
+    _resolve_measurement(calibration, measurement)
     if isinstance(calibration, Mapping) and 'calibration' in calibration:
         calibration = calibration['calibration']
     if not isinstance(calibration, Mapping) or set(calibration) != _KEYS:
@@ -297,25 +330,100 @@ def _shoulder(pose, excluded):
                 support=support, pair_support=pair, run_lengths=run_lengths)
 
 
-def measure_video(pose, candidates, fps, calibration=None, weights=None, excluded_frames=None):
+def _source_centers(centers, n, name):
+    if np.asarray(centers).ndim != 1:
+        raise ValueError(f'{name} must be a one-dimensional sequence of source-frame integers')
+    checked = [_integer(center, name) for center in centers]
+    if any(center >= n for center in checked):
+        raise ValueError(f'{name} must lie inside the source video')
+    return sorted(set(checked))
+
+
+def summarize_touch_window_speed(geo_speed, centers, window_halfwidth_frames=30, *, pair_support=None):
+    """Summarize original adjacent-pair speeds in the union of touch windows.
+
+    ``geo_speed[i]`` belongs to source pair (i-1, i); index zero is never used.
+    Missing pairs must be nonfinite or false in the optional N-element boolean
+    ``pair_support``. Inputs must retain the source clock, without compacting
+    gaps. Each center is a source-frame integer inside that clock. Both ends
+    must lie in ONE inclusive [center-B, center+B] window; overlaps count once.
+    Partial windows are usable, and no selected pairs yields a None mean.
+    This pure helper can replay saved historical centers and speed arrays.
+    """
+    halfwidth = _integer(window_halfwidth_frames, 'window_halfwidth_frames', minimum=1)
+    values = np.asarray(geo_speed)
+    if values.ndim != 1 or not values.size:
+        raise ValueError('geo_speed must be a nonempty source-frame speed array')
+    speed = _array(values, values.shape, 'geo_speed')
+    n = len(speed)
+    checked_centers = _source_centers(centers, n, 'centers')
+    valid = np.isfinite(speed)
+    if pair_support is not None:
+        support = np.asarray(pair_support)
+        if support.shape != (n,) or support.dtype.kind != 'b':
+            raise ValueError('pair_support must be an N-element boolean mask')
+        valid &= support
+    valid[0] = False
+    selected = np.zeros(n, bool)
+    for center in checked_centers:
+        # A union of frame masks would incorrectly bridge adjacent windows.
+        selected[max(1, center - halfwidth + 1):min(n, center + halfwidth + 1)] = True
+    selected &= valid
+    return dict(selected_pair_support=selected, window_halfwidth_frames=halfwidth,
+                selected_pairs=int(selected.sum()), whole_pairs=int(valid.sum()),
+                selected_mean_deg_s=float(speed[selected].mean()) if selected.any() else None,
+                whole_mean_deg_s=float(speed[valid].mean()) if valid.any() else None)
+
+
+def _touch_events(head, halfwidth):
+    """Keep the historical ball/ankle rules, independently of head support."""
+    accepted, rejected = [], []
+    for event in sorted(head['legacy_events'] + head['legacy_rejected'], key=lambda e: e['frame']):
+        reasons = [reason for reason in event['reasons'] if reason != 'head_pose_invalid']
+        entry = dict(event, reasons=reasons, legacy_reasons=list(event['reasons']),
+                     start=event['frame'] - halfwidth, end=event['frame'] + halfwidth)
+        (rejected if reasons else accepted).append(entry)
+    return accepted, rejected
+
+
+def measure_video(pose, candidates, fps, calibration=None, weights=None, excluded_frames=None, *,
+                  measurement=None, touch_frames=None, ball_tracks=None):
     """Return ``metrics``, ``total``, ``weights``, ``quality``, and diagnostics.
 
     pose: n (positive source-frame count), width/height, lm/world (N,33,3),
     vis (N,33). Nonfinite coordinates and vis outside [0,1] are missing data.
     candidates: redetect_balls counts/frames schema, or None for no ball data.
+    ball_tracks: original YOLOv8/SAM2 (cx,cy,r) observations by source frame.
+    When supplied, BOTH head and shoulder use the original SAM2 turning-point
+    detector. Cannot be combined with ROI candidates or explicit touch_frames.
     calibration: full config document or its three calibration mappings; no fitting.
     weights: dictionary with headup/trunk/shoulder, nonnegative, summing to 1.
     excluded_frames: source-frame integer indices or an N-element bool mask,
     applied to all metrics; no video aliases or historical exclusions are used.
+    measurement: shoulder aggregation and window_halfwidth_frames (default 30).
+    A full calibration profile supplies its own measurement when omitted;
+    conflicting explicit settings are rejected, never silently overridden.
+    touch_frames: optional original source-frame integer centers for SHOULDER
+    windows only (e.g. from the original YOLOv8+SAM2 pipeline). None retains
+    automatic ball proxies; an empty sequence explicitly selects no events.
+    Explicit centers are deduplicated and sorted, without filtering on head,
+    ankle, or center-frame shoulder quality. Shoulder pair masks still apply,
+    so partial windows remain usable. Head and trunk computations are unchanged.
 
     Head raw is the mean ±16 event range in degrees (at least two events).
     Trunk raw is the bilateral angle theta, not 180-theta. Shoulder raw is mean
-    geodesic deg/s over adjacent supported source frames. Any missing component
+    geodesic deg/s over supported adjacent pairs inside the same accepted touch
+    window. Windows form a union; no touch centers means shoulder N/A.
+    Whole-video speeds remain in diagnostics. Any missing component
     makes total None, even if its weight is zero. Valid scores have reason=None.
     """
     fps = _number(fps, 'fps', positive=True)
-    calibration, weights = validate_parameters(calibration, weights)
+    if ball_tracks is not None and (candidates is not None or touch_frames is not None):
+        raise ValueError('Supply only one touch source: SAM2 tracks, ROI candidates, or explicit centers')
+    measurement = _resolve_measurement(calibration, measurement)
+    calibration, weights = validate_parameters(calibration, weights, measurement=measurement)
     p, invalid_visibility = _pose(pose)
+    explicit_centers = None if touch_frames is None else _source_centers(touch_frames, p['n'], 'touch_frames')
     excluded = _exclusions(excluded_frames, p['n'])
     candidates, invalid_candidates = _candidates(candidates, p['n'])
     # Native shoulder diagnostics precede explicit exclusions; other measures
@@ -323,23 +431,57 @@ def measure_video(pose, candidates, fps, calibration=None, weights=None, exclude
     with np.errstate(invalid='ignore', divide='ignore', over='ignore'):
         shoulder = _shoulder(p, excluded)
         p['vis'][excluded] = np.nan
-        head_metric, head = _head(p, candidates)
+        if ball_tracks is None:
+            head_metric, head = _head(p, candidates)
+            detected = None
+        else:
+            from .sam2_metrics import detect_sam2_touches, head_from_sam2
+            detected = detect_sam2_touches(p, ball_tracks)
+            head_metric, head = head_from_sam2(p, detected)
         trunk_metric, trunk = _trunk(p)
         speed = np.r_[np.nan, _angle(shoulder['unit'][:-1], shoulder['unit'][1:]) * fps]
     shoulder['pair_support'] &= np.isfinite(speed)
     speed[~shoulder['pair_support']] = np.nan
     shoulder['geo_speed'] = speed
-    count = int(shoulder['pair_support'].sum())
-    raw = float(speed[shoulder['pair_support']].mean()) if count else None
+    halfwidth = measurement['shoulder']['window_halfwidth_frames']
+    if detected is not None:
+        touch_events = [dict(e, start=e['frame']-halfwidth, end=e['frame']+halfwidth)
+                        for e in detected['events']]
+        touch_rejected = detected['rejected']
+        touch_event_source = 'yolov8_sam2'
+    elif explicit_centers is None:
+        touch_events, touch_rejected = _touch_events(head, halfwidth)
+        touch_event_source = 'automatic_proxy'
+    else:
+        touch_events = [dict(frame=center, start=center - halfwidth, end=center + halfwidth, reasons=[])
+                        for center in explicit_centers]
+        touch_rejected = []
+        touch_event_source = 'explicit'
+    shoulder.update(summarize_touch_window_speed(speed, [event['frame'] for event in touch_events],
+                                                 halfwidth, pair_support=shoulder['pair_support']))
+    shoulder.update(touch_events=touch_events, touch_rejected=touch_rejected,
+                    touch_event_source=touch_event_source)
+    selected = shoulder['selected_pair_support']
+    selected_frames = selected | np.r_[selected[1:], False]
+    count, raw = shoulder['selected_pairs'], shoulder['selected_mean_deg_s']
+    reason = None
+    if not touch_events:
+        reason = ('No explicit touch frames supplied for shoulder windows.' if explicit_centers is not None
+                  else 'No accepted ball touch proxies for shoulder windows.')
+    elif raw is None:
+        reason = ('No adjacent supported shoulder pairs within accepted touch windows: need a valid run '
+                  'of at least 24 frames, 11-frame end guards, and common SG9/13/21 support.')
     shoulder['counts'] = dict(native_frames=int(shoulder['native_valid'].sum()),
                               valid_frames=int(shoulder['valid'].sum()),
                               auto_excluded_frames=int(shoulder['auto_excluded'].sum()),
                               flagged_transitions=len(shoulder['flagged_transitions']),
                               excluded_frames=int(excluded.sum()),
-                              supported_frames=int(shoulder['support'].sum()), valid_pairs=count)
-    shoulder_metric = dict(raw=raw, unit='deg/s', valid_frames=int(shoulder['support'].sum()),
-                           valid_pairs=count, valid_samples=count,
-                           reason=None if raw is not None else 'No adjacent supported shoulder frames: need a valid run of at least 24 frames, 11-frame end guards, and common SG9/13/21 support.')
+                              supported_frames=int(shoulder['support'].sum()), valid_pairs=count,
+                              selected_pairs=count, whole_pairs=shoulder['whole_pairs'],
+                              selected_frames=int(selected_frames.sum()),
+                              accepted_touch_events=len(touch_events), rejected_touch_events=len(touch_rejected))
+    shoulder_metric = dict(raw=raw, unit='deg/s', valid_frames=int(selected_frames.sum()),
+                           valid_pairs=count, valid_samples=count, reason=reason)
     head['invalid_candidate_geometry'] = invalid_candidates
     head['counts']['invalid_candidate_geometry_frames'] = int(invalid_candidates.sum())
     metrics = dict(headup=head_metric, trunk=trunk_metric, shoulder=shoulder_metric)
@@ -363,12 +505,18 @@ def measure_video(pose, candidates, fps, calibration=None, weights=None, exclude
         f'Head ball proxies retain fixed pixel thresholds (80 px jumps, 40 px/frame interpolation, 200 px ankle distance, 10 px prominence); source width {p["width"]:g} px and camera framing can change acceptance.',
         'Head ranges include upward and downward motion; ball direction changes are proxies, not confirmed contacts or gaze.',
     ]
+    if detected is not None:
+        warnings[2] = ('SAM2 touch candidates use original SG11 extrema on available observations and '
+                       'fixed 10px prominence / 200px ankle thresholds. Missing ball frames compress '
+                       'the detector clock; candidates are not verified contacts. Shoulder speed '
+                       'and window selection retain original frame indices.')
     if excluded.any():
         warnings.append(f'{int(excluded.sum())} explicitly excluded source frames were masked for all metrics.')
     for key, metric in metrics.items():
         if metric['reason']:
             warnings.append(f'{key}: {metric["reason"]}')
     return dict(version=VERSION, metrics=metrics, total=total, weights=weights, calibration=calibration,
+                measurement=measurement,
                 quality=dict(warnings=warnings, source_frames=p['n'], excluded_frames=int(excluded.sum()),
                              invalid_visibility_values=int(invalid_visibility.sum()),
                              missing_metrics=[k for k, m in metrics.items() if m['raw'] is None]),

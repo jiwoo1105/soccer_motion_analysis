@@ -62,7 +62,7 @@ class ReleaseMetricsTests(unittest.TestCase):
         p = pose_fixture(speed=0)
         p['world'][:, 12] = [.2, .1, .3]
         p['world'][:, 11] = [-.2, -.1, -.3]
-        metric = self.measure(p, None, 30.)['metrics']['shoulder']
+        metric = self.measure(p, balls(), 30.)['metrics']['shoulder']
         self.assertEqual(metric['raw'], 0.)
         self.assertEqual(metric['score'], 0.)
 
@@ -70,25 +70,25 @@ class ReleaseMetricsTests(unittest.TestCase):
         p = pose_fixture()
         p['world'] *= np.linspace(1, 3, p['n'])[:, None, None]
         p['world'] += [10, -20, 40]
-        self.assertAlmostEqual(self.measure(p, None, 30.)['metrics']['shoulder']['raw'], 30., places=8)
+        self.assertAlmostEqual(self.measure(p, balls(), 30.)['metrics']['shoulder']['raw'], 30., places=8)
 
     def test_xyz_tilt_motion_is_measured_not_only_yaw(self):
         p = pose_fixture()
         a = np.deg2rad(np.arange(p['n']) * .3)
         direction = np.column_stack((np.cos(a), np.sin(a), np.zeros(p['n'])))
         p['world'][:, 11], p['world'][:, 12] = -.2 * direction, .2 * direction
-        self.assertAlmostEqual(self.measure(p, None, 30.)['metrics']['shoulder']['raw'], 9., places=8)
+        self.assertAlmostEqual(self.measure(p, balls(), 30.)['metrics']['shoulder']['raw'], 9., places=8)
 
     def test_fps_scales_adjacent_speed(self):
         p = pose_fixture()
-        self.assertAlmostEqual(self.measure(p, None, 60.)['metrics']['shoulder']['raw'], 60., places=8)
+        self.assertAlmostEqual(self.measure(p, balls(), 60.)['metrics']['shoulder']['raw'], 60., places=8)
 
     def test_gap_splits_filter_runs_and_never_bridges_pairs(self):
         p = pose_fixture(100, speed=0)
         p['vis'][50, 11] = .1
         p['world'][51:, 11] = [0, 0, -.2]
         p['world'][51:, 12] = [0, 0, .2]
-        r = self.measure(p, None, 30.)
+        r = self.measure(p, balls(100), 30.)
         sh = r['diagnostics']['shoulder']
         self.assertFalse(sh['support'][39:63].any())
         self.assertTrue(sh['support'][38])
@@ -99,13 +99,13 @@ class ReleaseMetricsTests(unittest.TestCase):
     def test_minimum_run_is_24_with_two_centers_and_one_pair(self):
         for n, pairs in ((23, 0), (24, 1)):
             with self.subTest(n=n):
-                r = self.measure(pose_fixture(n), None, 30.)['metrics']['shoulder']
-                self.assertEqual(r['valid_pairs'], pairs)
+                result = self.measure(pose_fixture(n), None, 30.)
+                d = result['diagnostics']['shoulder']
+                self.assertEqual(int(d['pair_support'].sum()), pairs)
                 if pairs:
-                    self.assertAlmostEqual(r['raw'], 30., places=8)
-                else:
-                    self.assertIsNone(r['raw'])
-                    self.assertTrue(r['reason'])
+                    np.testing.assert_allclose(d['geo_speed'][d['pair_support']], 30., atol=1e-8)
+                self.assertIsNone(result['metrics']['shoulder']['raw'])
+                self.assertTrue(result['metrics']['shoulder']['reason'])
 
     def test_automatic_angle_and_length_jumps_remove_both_endpoints(self):
         for angle, scale in ((60., 1.), (0., 1.6), (0., 0.)):
@@ -130,10 +130,13 @@ class ReleaseMetricsTests(unittest.TestCase):
                 self.assertFalse(d['native_valid'][50])
                 self.assertFalse(d['support'][50])
 
-    def test_shoulder_support_does_not_depend_on_hips_or_ball(self):
+    def test_shoulder_support_ignores_hips_but_measurement_requires_ball_proxies(self):
         p = pose_fixture()
         p['world'][:, [23, 24, 25, 26]] = np.nan
         r = self.measure(p, None, 30.)
+        self.assertIsNone(r['metrics']['shoulder']['raw'])
+        self.assertEqual(int(r['diagnostics']['shoulder']['pair_support'].sum()), 157)
+        r = self.measure(p, balls(), 30.)
         self.assertAlmostEqual(r['metrics']['shoulder']['raw'], 30., places=8)
         self.assertIsNone(r['metrics']['trunk']['raw'])
         self.assertIsNone(r['total'])
@@ -225,11 +228,11 @@ class ReleaseMetricsTests(unittest.TestCase):
     def test_default_and_override_weight_totals_use_unrounded_component_scores(self):
         p, c = pose_fixture(), balls()
         r = self.measure(p, c, 30.)
-        want = .1 * 3 + .8 * (10 * 30 / 36.4628217436476) + .1 * (10 * 30 / 93.9849170623855)
+        want = .1 * 3 + .8 * (10 * 30 / 36.4628217436476) + .1 * (10 * 30 / 95.06803615376751)
         self.assertAlmostEqual(r['total'], want, places=8)
         self.assertEqual(r['weights'], {'headup': .1, 'trunk': .8, 'shoulder': .1})
         r = self.measure(p, c, 30., weights={'headup': .3, 'trunk': .6, 'shoulder': .1})
-        self.assertAlmostEqual(r['total'], .3 * 3 + .6 * (10 * 30 / 36.4628217436476) + .1 * (10 * 30 / 93.9849170623855), places=8)
+        self.assertAlmostEqual(r['total'], .3 * 3 + .6 * (10 * 30 / 36.4628217436476) + .1 * (10 * 30 / 95.06803615376751), places=8)
 
     def test_frozen_config_can_be_supplied_explicitly(self):
         config = json.loads((Path(__file__).resolve().parents[1] / 'configs/scoring.json').read_text())

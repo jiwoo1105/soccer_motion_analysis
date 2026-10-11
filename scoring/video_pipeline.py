@@ -6,7 +6,9 @@ The cache always keeps the original frame indices, including missing poses.
 """
 import hashlib
 import json
+from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
+import re
 import sys
 
 import numpy as np
@@ -41,17 +43,62 @@ def write_json(path, value):
                                    indent=2, allow_nan=False) + '\n', encoding='utf-8')
 
 
-def validate_cache(bundle, video, roi):
+BALL_BACKENDS = ('yolov8_sam2', 'yolo11_roi')
+
+
+def local_weight(path, name):
+    """Resolve an existing .pt file before any model constructor can download."""
+    if path is None:
+        raise FileNotFoundError(f'Local {name} weights are required')
+    path = Path(path).expanduser()
+    if not path.is_file() or path.suffix.lower() != '.pt':
+        raise FileNotFoundError(f'Local {name} weights missing: {path}; use scripts/setup_models.py')
+    return path.resolve()
+
+
+def _backend(value):
+    if value not in BALL_BACKENDS:
+        raise ValueError(f'Unknown ball backend: {value}')
+    return value
+
+
+def _weight_hash(value, name):
+    if not isinstance(value, str) or re.fullmatch('[0-9a-f]{64}', value) is None:
+        raise ValueError(f'Cache {name} requires a SHA-256 weight hash')
+
+
+def validate_cache(bundle, video, roi, *, ball_backend='yolo11_roi',
+                   yolo_model_path=None, sam2_checkpoint=None):
     """Require exactly the source and extraction ROI used to create this bundle."""
     bundle = Path(bundle)
     meta = json.loads((bundle/'metadata.json').read_text(encoding='utf-8'))
+    backend = _backend(ball_backend)
+    if not isinstance(meta, dict):
+        raise ValueError('Cache metadata must be an object')
+    # Unlabelled old caches contain only YOLO11 ROI candidates, never SAM2.
+    if meta.get('ball_source', 'yolo11_roi') != backend:
+        raise ValueError('Cache ball_source/backend differs; run fresh inference or select the matching backend')
+    schema = meta.get('cache_schema_version', 1)
+    if type(schema) is not int or schema not in (1, 2) or (backend == 'yolov8_sam2' and schema != 2):
+        raise ValueError('Unsupported ball cache schema_version')
+    if schema == 2 and 'ball_source' not in meta:
+        raise ValueError('Cache ball_source is required')
     if meta.get('video_sha256') != sha256(video):
         raise ValueError('Cache source video SHA-256 differs; run fresh inference')
     if meta.get('extraction_roi') != (list(roi) if roi is not None else None):
         raise ValueError('Cache extraction ROI differs; run fresh inference')
-    for key, filename in [('pose_sha256', 'pose.npz'), ('candidates_sha256', 'candidates.json')]:
+    payload = ('tracks_sha256', 'tracks.json') if backend == 'yolov8_sam2' else ('candidates_sha256', 'candidates.json')
+    for key, filename in [('pose_sha256', 'pose.npz'), payload]:
         if meta.get(key) != sha256(bundle/filename):
             raise ValueError(f'Cache {filename} SHA-256 differs; run fresh inference')
+    weight_paths = [('yolo_model_sha256', yolo_model_path)]
+    if backend == 'yolov8_sam2':
+        weight_paths.append(('sam2_checkpoint_sha256', sam2_checkpoint))
+    for key, path in weight_paths:
+        if schema == 2 or path is not None or key in meta:
+            _weight_hash(meta.get(key), key)
+        if path is not None and sha256(local_weight(path, key)) != meta[key]:
+            raise ValueError(f'Cache {key} differs from requested local weights')
     return meta
 
 
@@ -130,37 +177,71 @@ def save_pose(pose, meta, path):
                         frame_width=pose['width'],frame_height=pose['height'])
 
 
-def infer_clip(video, bundle, model, device='cpu', roi=None):
-    """Fresh inference to a new bundle. Model is one shared YOLO instance."""
+def infer_clip(video, bundle, model, device='cpu', roi=None, *, ball_backend='yolo11_roi',
+               yolo_model_path=None, sam2_checkpoint=None):
+    """Fresh inference; second return value is raw SAM2 tracks or ROI candidates.
+
+    The API's compatibility default remains ROI; the CLI explicitly defaults to
+    yolov8_sam2. Local model paths are required to bind cache weight provenance.
+    """
+    backend = _backend(ball_backend)
+    yolo_path = local_weight(yolo_model_path, 'YOLO')
+    model_hash = sha256(yolo_path)
+    sam_path = local_weight(sam2_checkpoint, 'SAM2 checkpoint') if backend == 'yolov8_sam2' else None
+    sam_hash = sha256(sam_path) if sam_path else None
     import cv2
-    import torch
     import mediapipe as mp
-    import ultralytics
-    from redetect_balls import process_clip
-    from scoring.roi_ball import PARAMETERS
     bundle=Path(bundle);bundle.mkdir(parents=True,exist_ok=False)
     source_hash=sha256(video)
     pose, meta=extract_pose_video(video,roi=roi)
     save_pose(pose,meta,bundle/'pose.npz')
-    # Missing rows remain in the pose file and become missing_pose for YOLO ROI.
-    valid=np.isfinite(pose['lm']).all(axis=(1,2))
-    lookup={i:(pose['lm'][i],pose['vis'][i],i/meta['fps']) for i in np.flatnonzero(valid)}
-    detected=process_clip(dict(video=Path(video),clip=Path(video).stem,pose=bundle/'pose.npz'),
-                          dict(frame_width=meta['width'],frame_height=meta['height'],map=lookup),
-                          model,cv2=cv2,torch=torch,device=device,batch_size=16)
+    pose_hash=sha256(bundle/'pose.npz')
+    if backend == 'yolov8_sam2':
+        from scoring.sam2_tracking import PARAMETERS, track_ball
+        detected=track_ball(video,pose,model,sam_path,device=device)
+        payload=dict(ball_source=backend,counts={'source_frames':pose['n']},
+                     source_average_fps=meta['fps'],source_frame_count_metadata=pose['n'],
+                     tracks={str(k):v for k,v in detected.items()},
+                     yolo_model_sha256=model_hash,sam2_checkpoint_sha256=sam_hash,
+                     video=Path(video).name,pose_cache='pose.npz',parameters=PARAMETERS,
+                     pose_sha256=pose_hash,video_sha256=source_hash)
+        detected=_validated_tracks(payload,meta)
+        filename,hash_key='tracks.json','tracks_sha256'
+    else:
+        import torch
+        from redetect_balls import process_clip
+        from scoring.roi_ball import PARAMETERS
+        # Missing rows remain in the pose file and become missing_pose for YOLO ROI.
+        valid=np.isfinite(pose['lm']).all(axis=(1,2))
+        lookup={i:(pose['lm'][i],pose['vis'][i],i/meta['fps']) for i in np.flatnonzero(valid)}
+        detected=process_clip(dict(video=Path(video),clip=Path(video).stem,pose=bundle/'pose.npz'),
+                              dict(frame_width=meta['width'],frame_height=meta['height'],map=lookup),
+                              model,cv2=cv2,torch=torch,device=device,batch_size=16)
+        payload=detected
+        filename,hash_key='candidates.json','candidates_sha256'
+        payload.update(video=Path(video).name,pose_cache='pose.npz',ball_source=backend,
+                       parameters=PARAMETERS,pose_sha256=pose_hash,video_sha256=source_hash,
+                       yolo_model_sha256=model_hash)
     if sha256(video)!=source_hash:
         raise ValueError('Source video changed during inference; rerun')
-    # Bundle provenance must remain portable and must not disclose source or
-    # temporary staging directories when the generated bundle is shared.
-    detected.update(video=Path(video).name,pose_cache='pose.npz',
-                    parameters=PARAMETERS,pose_sha256=sha256(bundle/'pose.npz'),video_sha256=source_hash)
-    write_json(bundle/'candidates.json',detected)
-    meta.update(video_sha256=source_hash,pose_sha256=sha256(bundle/'pose.npz'),
-                candidates_sha256=sha256(bundle/'candidates.json'),
-                versions=dict(python=sys.version.split()[0],mediapipe=mp.__version__,
-                              opencv=cv2.__version__,numpy=np.__version__,torch=torch.__version__,
-                              ultralytics=ultralytics.__version__),
+    if sha256(yolo_path)!=model_hash or (sam_path and sha256(sam_path)!=sam_hash):
+        raise ValueError('Model weights changed during inference; rerun')
+    write_json(bundle/filename,payload)
+    versions=dict(python=sys.version.split()[0],mediapipe=mp.__version__,
+                  opencv=cv2.__version__,numpy=np.__version__)
+    for package in ('torch','ultralytics') + (('SAM-2',) if sam_path else ()):
+        try:
+            versions[package]=version(package)
+        except PackageNotFoundError:
+            versions[package]='unavailable'
+    meta.update(cache_schema_version=2,ball_source=backend,yolo_model_sha256=model_hash,
+                video_sha256=source_hash,pose_sha256=pose_hash,versions=versions,
                 pose_model_sha256=sha256(Path(mp.__file__).parent/'modules/pose_landmark/pose_landmark_heavy.tflite'))
+    meta[hash_key]=sha256(bundle/filename)
+    if sam_path:
+        meta['sam2_checkpoint_sha256']=sam_hash
+        meta['ball_tracking_warnings']=([] if detected else [
+            'No SAM2 ball observations (no initial prompt or no masks); headup and shoulder may be N/A.'])
     write_json(bundle/'metadata.json',meta)
     return pose,detected,meta
 
@@ -211,10 +292,36 @@ def _validate_pose_clock(path, source):
             raise ValueError('Cached pose timestamps differ from source frame / FPS')
 
 
-def load_cached_clip(bundle, video, roi):
+def _validated_tracks(payload, source):
+    if not isinstance(payload,dict) or payload.get('ball_source')!='yolov8_sam2':
+        raise ValueError('Cached tracks require yolov8_sam2 ball_source')
+    if not isinstance(payload.get('counts'),dict) or not isinstance(payload.get('tracks'),dict):
+        raise ValueError('Cached tracks require source frame counts and a tracks mapping')
+    _check_source_number(payload.get('source_average_fps'),source['fps'],'track FPS',fps=True)
+    _check_source_number(payload.get('source_frame_count_metadata'),source['frames'],'track frame count')
+    _check_source_number(payload['counts'].get('source_frames'),source['frames'],'track source frames')
+    tracks={}
+    for key,value in payload['tracks'].items():
+        if not isinstance(key,str) or not key.isascii() or not key.isdigit() or str(int(key))!=key:
+            raise ValueError('Track source indices must be canonical nonnegative integers')
+        frame=int(key)
+        if frame>=source['frames'] or not isinstance(value,(list,tuple)) or len(value)!=3:
+            raise ValueError('Track frame or (cx,cy,radius) shape is invalid')
+        if any(isinstance(x,(bool,np.bool_)) or not isinstance(x,(int,float,np.number)) for x in value):
+            raise ValueError('Track coordinates and radius must be numeric')
+        cx,cy,r=map(float,value)
+        if not np.isfinite([cx,cy,r]).all() or not 0<=cx<source['width'] or not 0<=cy<source['height'] or r<=0:
+            raise ValueError('Track geometry must be finite and inside source dimensions with positive radius')
+        tracks[frame]=(cx,cy,r)
+    return tracks
+
+
+def load_cached_clip(bundle, video, roi, *, ball_backend='yolo11_roi',
+                     yolo_model_path=None, sam2_checkpoint=None):
     """Verify hashes and original source clock before expanding cached poses."""
     from scoring.current_metrics import load_pose
-    meta=validate_cache(bundle,video,roi)
+    meta=validate_cache(bundle,video,roi,ball_backend=ball_backend,
+                        yolo_model_path=yolo_model_path,sam2_checkpoint=sam2_checkpoint)
     source=_source_metadata(video)
     for key, value in source.items():
         _check_source_number(meta.get(key),value,key,fps=key=='fps')
@@ -222,14 +329,24 @@ def load_cached_clip(bundle, video, roi):
     pose=load_pose(Path(bundle)/'pose.npz',source['frames'])
     if (pose['width'],pose['height']) != (source['width'],source['height']):
         raise ValueError('Cached pose dimensions differ from original source video')
+    if ball_backend=='yolov8_sam2':
+        payload=json.loads((Path(bundle)/'tracks.json').read_text(encoding='utf-8'))
+        tracks=_validated_tracks(payload,source)
+        for key in ('yolo_model_sha256','sam2_checkpoint_sha256'):
+            if payload.get(key)!=meta[key]:
+                raise ValueError(f'Cached tracks {key} weight provenance differs from metadata')
+        return pose,tracks,{**meta,**source,'name':Path(video).name}
     candidates=json.loads((Path(bundle)/'candidates.json').read_text(encoding='utf-8'))
     if not isinstance(candidates,dict) or not isinstance(candidates.get('counts'),dict):
         raise ValueError('Cached candidates require source frame counts and FPS')
     _check_source_number(candidates.get('source_average_fps'),source['fps'],'candidate FPS',fps=True)
     _check_source_number(candidates.get('source_frame_count_metadata'),source['frames'],'candidate frame count')
     _check_source_number(candidates['counts'].get('source_frames'),source['frames'],'candidate source frames')
+    if meta.get('cache_schema_version')==2:
+        if candidates.get('ball_source')!='yolo11_roi' or candidates.get('yolo_model_sha256')!=meta['yolo_model_sha256']:
+            raise ValueError('Cached candidate backend or model provenance differs from metadata')
     # Sanitize older bundles in memory without changing their verified bytes.
     candidates={**candidates,'video':Path(video).name,'pose_cache':'pose.npz'}
     # Label reflects the supplied filename, not a prior cache filename.
-    meta={**meta,**source,'name':Path(video).name}
+    meta={**meta,**source,'name':Path(video).name,'ball_source':'yolo11_roi'}
     return pose,candidates,meta

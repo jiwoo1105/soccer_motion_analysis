@@ -15,6 +15,10 @@ POSE_URL='https://storage.googleapis.com/mediapipe-assets/pose_landmark_heavy.tf
 POSE_SHA='59e42d71bcd44cbdbabc419f0ff76686595fd265419566bd4009ef703ea8e1fe'
 YOLO_URL='https://github.com/ultralytics/assets/releases/download/v8.3.0/yolo11s.pt'
 YOLO_SHA='85a76fe86dd8afe384648546b56a7a78580c7cb7b404fc595f97969322d502d5'
+YOLOV8_URL='https://github.com/ultralytics/assets/releases/download/v8.3.0/yolov8n.pt'
+YOLOV8_SHA='f59b3d833e2ff32e194b5bb8e08d211dc7c5bdf144b90d2c8412c47ccfc83b36'
+SAM2_URL='https://dl.fbaipublicfiles.com/segment_anything_2/092824/sam2.1_hiera_small.pt'
+SAM2_SHA='6d1aa6f30de5c92224f8172114de081d104bbd23dd9dc5c58996f0cad5dc4d38'
 
 
 def digest(path):
@@ -48,17 +52,25 @@ def main(argv=None):
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--check',action='store_true',help='Check installed assets without downloading')
     p.add_argument('--pose-source',type=Path,help='Offline copy of the official heavy .tflite asset')
-    p.add_argument('--yolo-source',type=Path,help='Offline copy of the official YOLO11s .pt asset')
+    p.add_argument('--ball-backend',choices=('yolov8_sam2','yolo11_roi'),default='yolov8_sam2',
+                   help='Assets for original YOLOv8+SAM2 (default) or YOLO11 ROI compatibility')
+    p.add_argument('--yolo-source',type=Path,help='Offline YOLOv8n or YOLO11s .pt asset for the selected backend')
+    p.add_argument('--sam2-source',type=Path,help='Offline copy of the official SAM2.1 small .pt checkpoint')
     a=p.parse_args(argv)
     try:
         import mediapipe as mp
         if not hasattr(mp,'solutions'):
             raise RuntimeError('Install requirements-runtime.txt in a Python 3.11 venv')
+        primary=a.ball_backend=='yolov8_sam2'
+        yolo_url,yolo_sha,yolo_name=(YOLOV8_URL,YOLOV8_SHA,'yolov8n.pt') if primary else (YOLO_URL,YOLO_SHA,'yolo11s.pt')
         assets=[
             (a.pose_source.resolve().as_uri() if a.pose_source else POSE_URL,
              Path(mp.__file__).parent/'modules/pose_landmark/pose_landmark_heavy.tflite',POSE_SHA),
-            (a.yolo_source.resolve().as_uri() if a.yolo_source else YOLO_URL,
-             ROOT/'models/yolo11s.pt',YOLO_SHA)]
+            (a.yolo_source.resolve().as_uri() if a.yolo_source else yolo_url,
+             ROOT/'models'/yolo_name,yolo_sha)]
+        if primary:
+            assets.append((a.sam2_source.resolve().as_uri() if a.sam2_source else SAM2_URL,
+                           ROOT/'sam2_checkpoints/sam2.1_hiera_small.pt',SAM2_SHA))
         for url,path,checksum in assets:
             if a.check:
                 if not path.is_file() or digest(path)!=checksum:

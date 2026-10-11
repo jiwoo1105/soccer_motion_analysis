@@ -1,0 +1,33 @@
+{
+  "best": {
+    "halfwidth": 30,
+    "exclude_references": false,
+    "n": 11,
+    "rho": 0.6023386417319309
+  },
+  "reference": 95.06803615376751,
+  "hashes": {
+    "인,인 3-1_ball.json": "55aa5f157b0a0406cbdf55ebcec7d993727173f97816b4380e1d7cebef2fc86b",
+    "인,인 3-2_ball.json": "2f49c820d49cc6871d1900aa158aa120f0a9a15fbfb9b3c7776f00a48e648f2a",
+    "인,인 5-1_ball.json": "5578aa3d081efbe6f2020b2b3c5099790b62829fbc7c2c60e3ce25abed4ad6d7",
+    "인,인 7-1_ball.json": "9c1702c7a2f893de7d9dec220ac17635b1485b6a604da173028d12108554997b",
+    "인,인 7-2_ball.json": "41d93eeb55ff8b18283231db4256f9a8593d44d3df4a981c848dad69926ef7f3",
+    "인,인 8-1_ball.json": "73728957de420882ffe880db3e602f55431daf53584cc6ef7d336bd6282267cb",
+    "인,인 8-2_ball.json": "8ec3ef31b7b1f239a9463c2794be417c4a127570b3b67020a36baffa2d8e83f9",
+    "인,인 9-1_ball.json": "e870260aa7fdf72a3045022f2e47b3ca729f9d7e4b61f2eb8f8594d59d80918b",
+    "인,인 9-2_ball.json": "69d9ae8c4f60ac3fc5995e991446c5bdfa3d966e7188010c69f221af17e2aeed",
+    "인,인 기준1_ball.json": "cb7d2fead03e289c9ca3134bc79b2ac412c7434fb843e52468364cc567cf77b3",
+    "인,인 기준2_ball.json": "ec27920b97e0f4af5f65c0b1fb4fc8667f5bbbfc0dd7c758bb79ef383a5d7aae"
+  },
+  "function_sha256": "802adcbe8f5af752de43ec8b45256018b5aae340010b85ab9b9daa66641b7237",
+  "validation": {
+    "original_detector_parity_videos": 11,
+    "all_six_width_scalar_pair_parity": 66,
+    "max_error": 0.0,
+    "head_trunk_mask": "No shoulder-specific manual mask applied",
+    "shoulder_mask": "Historical reviewed bad-frame intervals applied only to shoulder",
+    "head_calibration": "Existing fixed operating anchors preserved, originally determined from ROI study. Not independently calibrated for SAM2.",
+    "frames": "source indices; overlapping shoulder pairs once; raw detector ball gaps legacy compacted"
+  },
+  "selection": "Six prespecified halfwidths 6,10,16,20,24,30; highest all-11-video raw-speed Spearman; ties use shorter window. Exploratory reused sample, not independent performance."
+}

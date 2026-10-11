@@ -1,6 +1,12 @@
 {
-  "schema_version": 1,
-  "version": "2026-10-07-frozen-current",
+  "schema_version": 2,
+  "version": "2026-10-11-sam2-touch-window",
+  "measurement": {
+    "shoulder": {
+      "aggregation": "touch_window_mean",
+      "window_halfwidth_frames": 30
+    }
+  },
   "calibration": {
     "headup": {
       "min_deg": 10.225053625082124,
@@ -10,7 +16,7 @@
       "reference_flexion_deg": 36.4628217436476
     },
     "shoulder": {
-      "reference_speed_deg_s": 93.9849170623855
+      "reference_speed_deg_s": 95.06803615376751
     }
   },
   "weights": {

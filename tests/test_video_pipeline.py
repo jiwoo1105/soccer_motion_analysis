@@ -55,6 +55,119 @@ class PipelineTests(unittest.TestCase):
                     candidates_sha256=self.mod.sha256(bundle/'candidates.json'))
         self.mod.write_json(bundle/'metadata.json', meta)
 
+    def sam_cache(self):
+        video, bundle, meta = self.cache()
+        yolo, sam = self.root/'yolov8n.pt', self.root/'sam2.pt'
+        yolo.write_bytes(b'yolo fixture')
+        sam.write_bytes(b'sam fixture')
+        hashes = dict(yolo_model_sha256=self.mod.sha256(yolo), sam2_checkpoint_sha256=self.mod.sha256(sam))
+        tracks = dict(ball_source='yolov8_sam2', counts={'source_frames': 5}, source_average_fps=30.,
+                      source_frame_count_metadata=5, tracks={'0': [40., 50., 4.], '4': [44., 50., 4.]}, **hashes)
+        self.mod.write_json(bundle/'tracks.json', tracks)
+        meta.update(cache_schema_version=2, ball_source='yolov8_sam2',
+                    tracks_sha256=self.mod.sha256(bundle/'tracks.json'), **hashes)
+        self.mod.write_json(bundle/'metadata.json', meta)
+        (bundle/'candidates.json').unlink()
+        return video, bundle, meta, yolo, sam
+
+    def test_sam2_cache_replays_raw_source_indices_without_any_model_packages(self):
+        video, bundle, _, _, _ = self.sam_cache()
+        with patch.dict(sys.modules, {'torch': None, 'sam2': None, 'mediapipe': None, 'ultralytics': None}):
+            pose, tracks, meta = self.mod.load_cached_clip(bundle, video, None, ball_backend='yolov8_sam2')
+        self.assertEqual(tracks, {0: (40., 50., 4.), 4: (44., 50., 4.)})
+        self.assertEqual(meta['ball_source'], 'yolov8_sam2')
+        self.assertTrue(np.isnan(pose['world'][2]).all())
+
+    def test_backend_mismatched_cache_is_never_replayed(self):
+        video, bundle, _, _, _ = self.sam_cache()
+        with self.assertRaisesRegex(ValueError, 'backend|ball_source'):
+            self.mod.load_cached_clip(bundle, video, None, ball_backend='yolo11_roi')
+        video, bundle, _ = self.cache()
+        with self.assertRaisesRegex(ValueError, 'backend|ball_source'):
+            self.mod.load_cached_clip(bundle, video, None, ball_backend='yolov8_sam2')
+
+    def test_sam2_cache_checks_tracks_bytes_and_requested_weight_hashes(self):
+        video, bundle, _, yolo, sam = self.sam_cache()
+        self.mod.load_cached_clip(bundle, video, None, ball_backend='yolov8_sam2',
+                                  yolo_model_path=yolo, sam2_checkpoint=sam)
+        sam.write_bytes(b'different checkpoint')
+        with self.assertRaisesRegex(ValueError, 'checkpoint|weights|SHA'):
+            self.mod.load_cached_clip(bundle, video, None, ball_backend='yolov8_sam2', sam2_checkpoint=sam)
+        (bundle/'tracks.json').write_text('{}')
+        with self.assertRaisesRegex(ValueError, 'tracks|SHA'):
+            self.mod.load_cached_clip(bundle, video, None, ball_backend='yolov8_sam2')
+
+    def test_sam2_cache_validates_weight_provenance_even_without_local_models(self):
+        for field, value in [('yolo_model_sha256', None), ('sam2_checkpoint_sha256', 'not-a-hash'),
+                             ('sam2_checkpoint_sha256', 'a' * 64)]:
+            with self.subTest(field=field, value=value):
+                video, bundle, meta, _, _ = self.sam_cache()
+                meta[field] = value
+                self.mod.write_json(bundle/'metadata.json', meta)
+                with self.assertRaisesRegex(ValueError, 'SHA|hash|provenance'):
+                    self.mod.load_cached_clip(bundle, video, None, ball_backend='yolov8_sam2')
+
+    def test_sam2_cache_rejects_invalid_tracks_even_when_file_hash_is_updated(self):
+        for updates in ({'tracks': {'5': [40, 50, 4]}}, {'tracks': {'01': [40, 50, 4]}},
+                        {'tracks': {'0': [40, 50, 0]}}, {'tracks': {'0': [None, 50, 4]}},
+                        {'tracks': {'0': [True, 50, 4]}}, {'tracks': {'0': [40, 50]}},
+                        {'tracks': {'0': [400, 50, 4]}}, {'source_average_fps': 60.},
+                        {'counts': {'source_frames': 6}}, {'ball_source': 'yolo11_roi'}):
+            with self.subTest(updates=updates):
+                video, bundle, meta, _, _ = self.sam_cache()
+                payload = json.loads((bundle/'tracks.json').read_text())
+                payload.update(updates)
+                self.mod.write_json(bundle/'tracks.json', payload)
+                meta['tracks_sha256'] = self.mod.sha256(bundle/'tracks.json')
+                self.mod.write_json(bundle/'metadata.json', meta)
+                with self.assertRaises(ValueError):
+                    self.mod.load_cached_clip(bundle, video, None, ball_backend='yolov8_sam2')
+
+    def test_sam2_inference_stores_source_and_weight_provenance_with_raw_tracks(self):
+        video, old_bundle, meta, yolo, sam = self.sam_cache()
+        from scoring.current_metrics import load_pose
+        pose = load_pose(old_bundle/'pose.npz', 5)
+        asset = self.root/'fake-package/modules/pose_landmark/pose_landmark_heavy.tflite'
+        asset.parent.mkdir(parents=True)
+        asset.write_bytes(b'fixture asset')
+        fake_mp = SimpleNamespace(__file__=str(self.root/'fake-package/__init__.py'), __version__='test')
+        bundle = self.root/'fresh-sam'
+        with patch.dict(sys.modules, {'mediapipe': fake_mp}), \
+             patch.object(self.mod, 'extract_pose_video', return_value=(pose, meta)), \
+             patch('scoring.sam2_tracking.track_ball', return_value={0: (40., 50., 4.), 4: (44., 50., 4.)}):
+            _, tracks, saved = self.mod.infer_clip(video, bundle, object(), ball_backend='yolov8_sam2',
+                                                   yolo_model_path=yolo, sam2_checkpoint=sam)
+        self.assertFalse((bundle/'candidates.json').exists())
+        self.assertEqual(saved['ball_source'], 'yolov8_sam2')
+        self.assertEqual(saved['tracks_sha256'], self.mod.sha256(bundle/'tracks.json'))
+        self.assertEqual(saved['sam2_checkpoint_sha256'], self.mod.sha256(sam))
+        _, replayed, _ = self.mod.load_cached_clip(bundle, video, None, ball_backend='yolov8_sam2')
+        self.assertEqual(replayed, tracks)
+        self.assertNotIn(str(self.root), (bundle/'tracks.json').read_text())
+
+    def test_no_initial_ball_is_cached_with_a_warning_and_can_replay_as_na(self):
+        video, old_bundle, meta, yolo, sam = self.sam_cache()
+        from scoring.current_metrics import load_pose
+        pose = load_pose(old_bundle/'pose.npz', 5)
+        asset = self.root/'fake-package/modules/pose_landmark/pose_landmark_heavy.tflite'
+        asset.parent.mkdir(parents=True)
+        asset.write_bytes(b'fixture asset')
+        fake_mp = SimpleNamespace(__file__=str(self.root/'fake-package/__init__.py'), __version__='test')
+        bundle = self.root/'no-ball'
+        with patch.dict(sys.modules, {'mediapipe': fake_mp}), \
+             patch.object(self.mod, 'extract_pose_video', return_value=(pose, meta)), \
+             patch('scoring.sam2_tracking.track_ball', return_value={}):
+            _, tracks, saved = self.mod.infer_clip(video, bundle, object(), ball_backend='yolov8_sam2',
+                                                   yolo_model_path=yolo, sam2_checkpoint=sam)
+        self.assertEqual(tracks, {})
+        self.assertTrue(saved['ball_tracking_warnings'])
+        pose, replayed, meta = self.mod.load_cached_clip(bundle, video, None, ball_backend='yolov8_sam2')
+        self.assertEqual(replayed, {})
+        from scoring.release_metrics import measure_video
+        result = measure_video(pose, None, 30., ball_tracks=replayed)
+        self.assertIsNone(result['metrics']['shoulder']['raw'])
+        self.assertIsNone(result['metrics']['headup']['raw'])
+
     def test_replay_preserves_missing_source_rows(self):
         video, bundle, _ = self.cache()
         pose, _, meta = self.mod.load_cached_clip(bundle, video, None)
@@ -170,11 +283,14 @@ class PipelineTests(unittest.TestCase):
         bundle = self.root/'.dribble-report-staging/clips/clip-01'
         detected = json.loads((old_bundle/'candidates.json').read_text())
         detected['pose_cache'] = str(bundle/'pose.npz')
+        yolo=self.root/'fixture-yolo.pt'
+        yolo.write_bytes(b'fixture weights')
         with patch.dict(sys.modules, {'torch': SimpleNamespace(__version__='test'),
                                      'mediapipe': fake_mp, 'ultralytics': SimpleNamespace(__version__='test')}), \
                 patch.object(self.mod, 'extract_pose_video', return_value=(pose, meta)), \
                 patch('redetect_balls.process_clip', return_value=detected):
-            _, returned, saved_meta = self.mod.infer_clip(video, bundle, object())
+            _, returned, saved_meta = self.mod.infer_clip(video, bundle, object(),
+                                                         ball_backend='yolo11_roi',yolo_model_path=yolo)
         saved = json.loads((bundle/'candidates.json').read_text())
         for candidates in (returned, saved):
             self.assertEqual(candidates['video'], 'test video.avi')

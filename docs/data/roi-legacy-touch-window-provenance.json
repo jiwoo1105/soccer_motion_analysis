@@ -1,0 +1,27 @@
+{
+  "study": "2026-10-11_touch_mean_speed",
+  "selection": "largest raw Spearman across six precomputed widths, automatic events, all 11 videos",
+  "candidate_widths": [
+    6,
+    10,
+    16,
+    20,
+    24,
+    30
+  ],
+  "selected_halfwidth_frames": 24,
+  "reference_speed_deg_s": 98.88202612670571,
+  "reference_speeds": {
+    "기준1": 99.26470492398889,
+    "기준2": 98.49934732942252
+  },
+  "reference_use": "Descriptive normalization includes reference videos themselves; not held-out validation.",
+  "masks": "Reviewed original-video masks, wrong-person videos6-1and7-3 excluded, wrong-ball7-1f28excluded. Fresh CLI has automatic numeric masks only.",
+  "head_trunk_scores": "Unchanged saved applied_head_relative.json scores; rows9-2/ref2hold.",
+  "input_sha256": {
+    "results.json": "790bdd97fef638ec80f5f408c518ae0acaf4a3e4253e3036d811d41855a6ec32",
+    "statistics.json": "df839af019e86d247320b8756cc1e750b9492dac0270eb5bae3b5ec9b5ec886f",
+    "signals.npz": "c51e9226eee83ceb5d8673926b6e1de17fecdb484b8ed88415de54296f39bd4c",
+    "sources.json": "d194be5aace9163a043af331af529d51345e9cd89331cafb933f6dfe32579509"
+  }
+}

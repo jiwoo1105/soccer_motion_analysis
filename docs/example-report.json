@@ -1,5 +1,5 @@
 {
-  "version": "2026-10-11-sam2-touch-window",
+  "version": "2026-10-11-sam2-touch16",
   "provisional": true,
   "calibration": {
     "headup": {
@@ -10,18 +10,18 @@
       "reference_flexion_deg": 36.4628217436476
     },
     "shoulder": {
-      "reference_speed_deg_s": 95.06803615376751
+      "reference_speed_deg_s": 96.65652026544726
     }
   },
   "measurement": {
     "shoulder": {
       "aggregation": "touch_window_mean",
-      "window_halfwidth_frames": 30
+      "window_halfwidth_frames": 16
     }
   },
   "clips": [
     {
-      "version": "2026-10-11-sam2-touch-window",
+      "version": "2026-10-11-sam2-touch16",
       "metrics": {
         "headup": {
           "raw": 14.994934098462332,
@@ -44,17 +44,17 @@
           "source_frames": 239
         },
         "shoulder": {
-          "raw": 95.54962611067816,
+          "raw": 92.55443118685508,
           "unit": "deg/s",
-          "valid_frames": 177,
-          "valid_pairs": 176,
-          "valid_samples": 176,
+          "valid_frames": 144,
+          "valid_pairs": 142,
+          "valid_samples": 142,
           "reason": null,
-          "score": 10.0,
+          "score": 9.575601411335041,
           "source_frames": 239
         }
       },
-      "total": 9.944721988010608,
+      "total": 9.902282129144112,
       "weights": {
         "headup": 0.1,
         "trunk": 0.8,
@@ -69,13 +69,13 @@
           "reference_flexion_deg": 36.4628217436476
         },
         "shoulder": {
-          "reference_speed_deg_s": 95.06803615376751
+          "reference_speed_deg_s": 96.65652026544726
         }
       },
       "measurement": {
         "shoulder": {
           "aggregation": "touch_window_mean",
-          "window_halfwidth_frames": 30
+          "window_halfwidth_frames": 16
         }
       },
       "quality": {
@@ -118,14 +118,14 @@
         "ball_tracking_warnings": []
       },
       "provisional": true,
-      "cache_replay": false,
+      "cache_replay": true,
       "scoring_profile": {
         "name": "scoring.json",
-        "sha256": "36247e4c29bb384743a3a0de4668936c4b15c5e54e9903e4334e6ff77bf83227"
+        "sha256": "de3945dee182f8aa2bf314e6b62b66af8d2ac8c16a7df52b898534d7a99a590f"
       }
     },
     {
-      "version": "2026-10-11-sam2-touch-window",
+      "version": "2026-10-11-sam2-touch16",
       "metrics": {
         "headup": {
           "raw": 14.551918444856842,
@@ -148,17 +148,17 @@
           "source_frames": 292
         },
         "shoulder": {
-          "raw": 82.66850496731662,
+          "raw": 78.88216875772092,
           "unit": "deg/s",
-          "valid_frames": 199,
-          "valid_pairs": 197,
-          "valid_samples": 197,
+          "valid_frames": 167,
+          "valid_pairs": 161,
+          "valid_samples": 161,
           "reason": null,
-          "score": 8.69572027696088,
+          "score": 8.16108096392124,
           "source_frames": 292
         }
       },
-      "total": 8.399360359604115,
+      "total": 8.34589642830015,
       "weights": {
         "headup": 0.1,
         "trunk": 0.8,
@@ -173,13 +173,13 @@
           "reference_flexion_deg": 36.4628217436476
         },
         "shoulder": {
-          "reference_speed_deg_s": 95.06803615376751
+          "reference_speed_deg_s": 96.65652026544726
         }
       },
       "measurement": {
         "shoulder": {
           "aggregation": "touch_window_mean",
-          "window_halfwidth_frames": 30
+          "window_halfwidth_frames": 16
         }
       },
       "quality": {
@@ -222,14 +222,14 @@
         "ball_tracking_warnings": []
       },
       "provisional": true,
-      "cache_replay": false,
+      "cache_replay": true,
       "scoring_profile": {
         "name": "scoring.json",
-        "sha256": "36247e4c29bb384743a3a0de4668936c4b15c5e54e9903e4334e6ff77bf83227"
+        "sha256": "de3945dee182f8aa2bf314e6b62b66af8d2ac8c16a7df52b898534d7a99a590f"
       }
     },
     {
-      "version": "2026-10-11-sam2-touch-window",
+      "version": "2026-10-11-sam2-touch16",
       "metrics": {
         "headup": {
           "raw": 11.036884758058584,
@@ -252,17 +252,17 @@
           "source_frames": 240
         },
         "shoulder": {
-          "raw": 89.60018620204508,
+          "raw": 86.87143370703254,
           "unit": "deg/s",
-          "valid_frames": 186,
-          "valid_pairs": 185,
-          "valid_samples": 185,
+          "valid_frames": 132,
+          "valid_pairs": 128,
+          "valid_samples": 128,
           "reason": null,
-          "score": 9.424848753278287,
+          "score": 8.987643406617371,
           "source_frames": 240
         }
       },
-      "total": 7.62901517073591,
+      "total": 7.585294636069818,
       "weights": {
         "headup": 0.1,
         "trunk": 0.8,
@@ -277,13 +277,13 @@
           "reference_flexion_deg": 36.4628217436476
         },
         "shoulder": {
-          "reference_speed_deg_s": 95.06803615376751
+          "reference_speed_deg_s": 96.65652026544726
         }
       },
       "measurement": {
         "shoulder": {
           "aggregation": "touch_window_mean",
-          "window_halfwidth_frames": 30
+          "window_halfwidth_frames": 16
         }
       },
       "quality": {
@@ -326,21 +326,23 @@
         "ball_tracking_warnings": []
       },
       "provisional": true,
-      "cache_replay": false,
+      "cache_replay": true,
       "scoring_profile": {
         "name": "scoring.json",
-        "sha256": "36247e4c29bb384743a3a0de4668936c4b15c5e54e9903e4334e6ff77bf83227"
+        "sha256": "de3945dee182f8aa2bf314e6b62b66af8d2ac8c16a7df52b898534d7a99a590f"
       }
     }
   ],
   "provenance": {
     "date": "2026-10-11",
-    "origin": "Fresh original-video inference, no cache reused during extraction",
+    "origin": "Cached replay of previously fresh YOLOv8+SAM2 inference; remeasured with shoulder ±16, no new inference",
     "backend": "yolov8_sam2",
-    "device": "mps",
     "source_frames": 771,
+    "cache_replay": true,
     "frame_diagnostics_omitted": true,
-    "cache_replay_max_abs_error": 0.0,
+    "window_halfwidth_frames": 16,
+    "head_trunk_exactly_unchanged": true,
+    "scalar_original_pair_check": true,
     "independent_skill_validation": false
   }
 }

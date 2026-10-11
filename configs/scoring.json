@@ -1,10 +1,10 @@
 {
   "schema_version": 2,
-  "version": "2026-10-11-sam2-touch-window",
+  "version": "2026-10-11-sam2-touch16",
   "measurement": {
     "shoulder": {
       "aggregation": "touch_window_mean",
-      "window_halfwidth_frames": 30
+      "window_halfwidth_frames": 16
     }
   },
   "calibration": {
@@ -16,7 +16,7 @@
       "reference_flexion_deg": 36.4628217436476
     },
     "shoulder": {
-      "reference_speed_deg_s": 95.06803615376751
+      "reference_speed_deg_s": 96.65652026544726
     }
   },
   "weights": {

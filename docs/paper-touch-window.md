@@ -227,7 +227,7 @@ $$
 $$
 \color{#387dc9}{\mathcal W_k=\{t:|t-t_k|\le B_{\mathrm{sh}}\},\qquad \mathcal P_{\mathrm{sh}}=\bigcup_k\{t\in\mathcal P:t-1,t\in\mathcal W_k\}}
 $$
-𝒫는 원본에서 이웃한 t−1과 t가 모두 어깨 집계 조건을 만족하는 쌍의 끝 인덱스 집합이다. 𝒫_sh에는 두 프레임이 같은 터치 구간에 포함되는 쌍만 남긴다. B_sh는 헤드업의 Δ와 다른 변수이며, 본 연구에서는 B_sh=30으로 설정하였다.
+𝒫는 원본에서 이웃한 t−1과 t가 모두 어깨 집계 조건을 만족하는 쌍의 끝 인덱스 집합이다. 𝒫_sh에는 두 프레임이 같은 터치 구간에 포함되는 쌍만 남긴다. B_sh는 어깨의 집계 범위를 나타내며, 헤드업과 동일한 시간 범위를 사용하기 위해 B_sh=16으로 설정하였다.
 $$
 \color{#387dc9}{V_{\mathrm{touch}}=\frac{1}{|\mathcal P_{\mathrm{sh}}|}\sum_{t\in\mathcal P_{\mathrm{sh}}}\omega^{(t)}}
 $$

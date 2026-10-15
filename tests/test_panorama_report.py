@@ -74,6 +74,17 @@ def render_item(video, pose=None, report=None):
                 report=report if report is not None else make_report(video[0].name))
 
 
+def test_paper_panorama_labels_raw_values_without_total(video, tmp_path, drawn_text):
+    target = tmp_path / 'paper.png'
+    api().render_panorama([render_item(video)], target, report_mode='paper')
+    text = '\n'.join(drawn_text)
+    assert all(symbol in text for symbol in ('S_trunk', 'S_head', 'V_touch'))
+    assert '148.12' in text and '12.35' in text and '37.12' in text
+    assert 'deg/s' in text and 'deg' in text
+    assert not {'7.12', '4.13', '8.77'}.intersection(drawn_text)
+    assert '총점' not in text and 'Total' not in text
+
+
 def color_extent(pixels, rgb):
     mask = np.max(np.abs(pixels.astype(float) - rgb), axis=-1) < 8
     yy, xx = np.nonzero(mask)

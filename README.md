@@ -63,9 +63,29 @@ python analyze_video.py \
 | `panorama.png` | 실제 장면 6장과 관절 표시, 항목별 점수와 총점 |
 | `report.html` | 이미지, 점수표, 계산 불가 이유와 품질 안내 |
 | `report.json` | 원시값, 설정, 유효 구간과 진단 정보 |
+| `paper_metrics.csv` | 논문용 `S_trunk_deg`, `S_head_deg`, `V_touch_deg_s`, 유효 표본 수와 계산 불가 사유 |
 | `clips/clip-*/pose.npz` | 원본 프레임 번호를 유지한 2D/3D 관절 좌표 |
 | `clips/clip-*/tracks.json` | SAM2 공 추적 자료 |
 | `clips/clip-*/metadata.json` | 공 처리 경로, FPS, 해상도, 모델과 파일 해시 |
+
+## 논문용 측정값
+
+`--report-mode paper`를 추가하면 파노라마에 **S_trunk(°), S_head(°), V_touch(°/s)**를 표시합니다.
+이 값은 0~10점으로 환산하기 전의 측정값입니다. `S_trunk`는 보각이 아닌 무릎–엉덩이–어깨 각도 자체입니다.
+
+```bash
+python analyze_video.py \
+  --video "input/reference.mp4" "input/player_a.mp4" "input/player_b.mp4" \
+  --output "output/paper_comparison" \
+  --report-mode paper --device cpu
+```
+
+![세 샘플의 논문 지표](docs/images/paper-panorama-example.png)
+
+파노라마에는 원시 측정값만 표시하며 총점을 합산하지 않습니다. 기본 `--report-mode scores`는 기존 항목 점수와 총점을 표시합니다.
+두 모드는 **동일한 계산 결과의 표시 방식**만 다릅니다. 어느 모드든 CSV에 원시값을 저장하고, JSON의 `metrics.*.raw`와 `metrics.*.symbol`에서 값과 논문 기호를 확인할 수 있습니다. HTML에는 원시값과 환산 점수를 함께 제공합니다.
+
+상체는 전체 유효 프레임, 헤드업과 어깨는 기본 터치 ±16프레임을 사용합니다. [세 샘플의 값과 계산 출처](docs/paper-samples.md)를 참고하세요.
 
 ## 점수 읽기
 

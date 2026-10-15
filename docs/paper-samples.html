@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dribbling motion report</title>
+<style>
+:root { color-scheme: light; font-family: system-ui, sans-serif; color: #1b232b; background: white; }
+body { margin: 0 auto; max-width: 1500px; padding: 40px 28px; line-height: 1.55; }
+h1 { font-size: 2rem; margin-bottom: .4rem; } h2 { font-size: 1.3rem; overflow-wrap: anywhere; }
+p, figcaption { overflow-wrap: anywhere; } .notice, figcaption { color: #586169; }
+figure { margin: 32px 0; } img { display: block; width: 100%; height: auto; }
+figcaption { font-size: .9rem; margin-top: 12px; } section { border-top: 1px solid #dae0e5; padding: 20px 0; }
+.table-scroll { overflow-x: auto; } table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+caption { text-align: left; font-weight: 600; padding: 10px 0; }
+th, td { padding: 12px; border-bottom: 1px solid #dae0e5; text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+thead th { background: #f5f7f8; } .total { font-weight: 600; }
+@media print { body { max-width: none; padding: 0; font-size: 10pt; } section { break-inside: avoid; } }
+</style></head><body>
+<header><h1>Dribbling motion report</h1><p class="notice">Provisional scores; not validated skill grades. Inspect subject identity and pose quality.</p>
+<p>Fixed calibration and weights are not fitted to these video labels. Any weight override is recorded per video.
+Missing measurements remain N/A. Displayed figure scores use two decimals; tables retain supplied precision.</p></header>
+<figure><img src="images/paper-panorama-example.png" alt="Sequential real source frames with schematic pose overlays and reported scores">
+<figcaption>Frames use zero-based source indices and seconds (frame / fps). Missing poses retain the real frame.
+Short clips may repeat labeled source frames. Red: shoulders; blue: trunk/hips/knees; yellow: head vector.
+The 2D overlay is schematic, not a measured 3D angle.</figcaption></figure>
+<section aria-labelledby="video-1">
+<h2 id="video-1">01 · 인,인 기준1.MOV</h2>
+<p>239 source frames · 29.974916387959865 fps</p>
+<div class="table-scroll"><table><caption>Supplied measurements and scores: 인,인 기준1.MOV</caption>
+<thead><tr><th scope="col">Metric</th><th scope="col">Raw value</th><th scope="col">Unit</th>
+<th scope="col">Score / 10</th><th scope="col">Reason</th><th scope="col">Samples / details</th></tr></thead>
+<tbody><tr><td>S_head · Head-up</td><td>14.994934098462332</td><td>deg</td><td>9.57275174877814</td><td>—</td><td>valid_events: 3; valid_frames: 92; valid_samples: 3; candidate_events: 5; symbol: S_head; source_frames: 239</td></tr><tr><td>S_trunk · Trunk</td><td>143.5943938332341</td><td>deg</td><td>9.984308516415991</td><td>—</td><td>valid_frames: 237; valid_samples: 237; symbol: S_trunk; source_frames: 239</td></tr><tr><td>V_touch · Shoulder speed</td><td>92.55443118685508</td><td>deg/s</td><td>9.575601411335041</td><td>—</td><td>valid_frames: 144; valid_pairs: 142; valid_samples: 142; symbol: V_touch; source_frames: 239</td></tr><tr class="total"><th scope="row">Total</th><td colspan="2">Weighted score</td>
+<td>9.902282129144112</td><td colspan="2">As supplied by the report.</td></tr></tbody></table></div>
+<p><strong>Fixed weights for this report:</strong> Head-up: 0.1; Trunk: 0.8; Shoulder speed: 0.1</p>
+<p><strong>Quality:</strong> warnings: Provisional frozen relative scores; not validated skill grades. No grade training or per-video refitting.; Automatic numeric masks do not validate subject identity or left/right landmark identity; inspect the source video.; SAM2 touch candidates use original SG11 extrema on available observations and fixed 10px prominence / 200px ankle thresholds. Missing ball frames compress the detector clock; candidates are not verified contacts. Shoulder speed and window selection retain original frame indices.; Head ranges include upward and downward motion; ball direction changes are proxies, not confirmed contacts or gaze.; source_frames: 239; excluded_frames: 0; invalid_visibility_values: 0; missing_metrics: </p></section><section aria-labelledby="video-2">
+<h2 id="video-2">02 · 인,인 7-2.MOV</h2>
+<p>292 source frames · 29.974337040205302 fps</p>
+<div class="table-scroll"><table><caption>Supplied measurements and scores: 인,인 7-2.MOV</caption>
+<thead><tr><th scope="col">Metric</th><th scope="col">Raw value</th><th scope="col">Unit</th>
+<th scope="col">Score / 10</th><th scope="col">Reason</th><th scope="col">Samples / details</th></tr></thead>
+<tbody><tr><td>S_head · Head-up</td><td>14.551918444856842</td><td>deg</td><td>8.96228951010739</td><td>—</td><td>valid_events: 5; valid_frames: 165; valid_samples: 5; candidate_events: 6; symbol: S_head; source_frames: 292</td></tr><tr><td>S_trunk · Trunk</td><td>149.7652133460551</td><td>deg</td><td>8.29194922612161</td><td>—</td><td>valid_frames: 273; valid_samples: 273; symbol: S_trunk; source_frames: 292</td></tr><tr><td>V_touch · Shoulder speed</td><td>78.88216875772092</td><td>deg/s</td><td>8.16108096392124</td><td>—</td><td>valid_frames: 167; valid_pairs: 161; valid_samples: 161; symbol: V_touch; source_frames: 292</td></tr><tr class="total"><th scope="row">Total</th><td colspan="2">Weighted score</td>
+<td>8.34589642830015</td><td colspan="2">As supplied by the report.</td></tr></tbody></table></div>
+<p><strong>Fixed weights for this report:</strong> Head-up: 0.1; Trunk: 0.8; Shoulder speed: 0.1</p>
+<p><strong>Quality:</strong> warnings: Provisional frozen relative scores; not validated skill grades. No grade training or per-video refitting.; Automatic numeric masks do not validate subject identity or left/right landmark identity; inspect the source video.; SAM2 touch candidates use original SG11 extrema on available observations and fixed 10px prominence / 200px ankle thresholds. Missing ball frames compress the detector clock; candidates are not verified contacts. Shoulder speed and window selection retain original frame indices.; Head ranges include upward and downward motion; ball direction changes are proxies, not confirmed contacts or gaze.; source_frames: 292; excluded_frames: 0; invalid_visibility_values: 0; missing_metrics: </p></section><section aria-labelledby="video-3">
+<h2 id="video-3">03 · 인,인 3-1.MOV</h2>
+<p>240 source frames · 29.975020815986678 fps</p>
+<div class="table-scroll"><table><caption>Supplied measurements and scores: 인,인 3-1.MOV</caption>
+<thead><tr><th scope="col">Metric</th><th scope="col">Raw value</th><th scope="col">Unit</th>
+<th scope="col">Score / 10</th><th scope="col">Reason</th><th scope="col">Samples / details</th></tr></thead>
+<tbody><tr><td>S_head · Head-up</td><td>11.036884758058584</td><td>deg</td><td>4.1186788702070345</td><td>—</td><td>valid_events: 4; valid_frames: 132; valid_samples: 4; candidate_events: 4; symbol: S_head; source_frames: 240</td></tr><tr><td>S_trunk · Trunk</td><td>151.40101288767556</td><td>deg</td><td>7.843328010484222</td><td>—</td><td>valid_frames: 214; valid_samples: 214; symbol: S_trunk; source_frames: 240</td></tr><tr><td>V_touch · Shoulder speed</td><td>86.87143370703254</td><td>deg/s</td><td>8.987643406617371</td><td>—</td><td>valid_frames: 132; valid_pairs: 128; valid_samples: 128; symbol: V_touch; source_frames: 240</td></tr><tr class="total"><th scope="row">Total</th><td colspan="2">Weighted score</td>
+<td>7.585294636069818</td><td colspan="2">As supplied by the report.</td></tr></tbody></table></div>
+<p><strong>Fixed weights for this report:</strong> Head-up: 0.1; Trunk: 0.8; Shoulder speed: 0.1</p>
+<p><strong>Quality:</strong> warnings: Provisional frozen relative scores; not validated skill grades. No grade training or per-video refitting.; Automatic numeric masks do not validate subject identity or left/right landmark identity; inspect the source video.; SAM2 touch candidates use original SG11 extrema on available observations and fixed 10px prominence / 200px ankle thresholds. Missing ball frames compress the detector clock; candidates are not verified contacts. Shoulder speed and window selection retain original frame indices.; Head ranges include upward and downward motion; ball direction changes are proxies, not confirmed contacts or gaze.; source_frames: 240; excluded_frames: 0; invalid_visibility_values: 0; missing_metrics: </p></section>
+<footer><p class="notice">Offline report: keep this HTML and its local PNG at their relative locations.</p></footer>
+</body></html>

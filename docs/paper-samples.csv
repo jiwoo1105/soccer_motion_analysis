@@ -1,0 +1,4 @@
+﻿video,S_trunk_deg,S_head_deg,V_touch_deg_s,ball_source,shoulder_halfwidth_frames,head_valid_events,trunk_valid_frames,shoulder_valid_pairs,trunk_reason,headup_reason,shoulder_reason
+"인,인 기준1.MOV",143.5943938332341,14.994934098462332,92.55443118685508,yolov8_sam2,16,3,237,142,,,
+"인,인 7-2.MOV",149.7652133460551,14.551918444856842,78.88216875772092,yolov8_sam2,16,5,273,161,,,
+"인,인 3-1.MOV",151.40101288767556,11.036884758058584,86.87143370703254,yolov8_sam2,16,4,214,128,,,

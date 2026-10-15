@@ -1,0 +1,365 @@
+{
+  "version": "2026-10-11-sam2-touch16",
+  "report_mode": "paper",
+  "provenance": {
+    "date": "2026-10-16",
+    "backend": "yolov8_sam2",
+    "method": "Verified cached extraction replay; no new model inference.",
+    "manual_exclusions": false,
+    "head_halfwidth_frames": 16,
+    "shoulder_halfwidth_frames": 16,
+    "scoring_profile_sha256": "de3945dee182f8aa2bf314e6b62b66af8d2ac8c16a7df52b898534d7a99a590f",
+    "scalar_checks": [
+      {
+        "alias": "기준1",
+        "scalar_speed": 92.55443118685508,
+        "selected_pairs": 142,
+        "candidate_centers": [
+          67,
+          91,
+          119,
+          157,
+          183
+        ]
+      },
+      {
+        "alias": "7-2",
+        "scalar_speed": 78.88216875772088,
+        "selected_pairs": 161,
+        "candidate_centers": [
+          14,
+          53,
+          93,
+          131,
+          168,
+          203
+        ]
+      },
+      {
+        "alias": "3-1",
+        "scalar_speed": 86.87143370703251,
+        "selected_pairs": 128,
+        "candidate_centers": [
+          44,
+          85,
+          128,
+          169
+        ]
+      }
+    ]
+  },
+  "clips": [
+    {
+      "version": "2026-10-11-sam2-touch16",
+      "metrics": {
+        "headup": {
+          "raw": 14.994934098462332,
+          "unit": "deg",
+          "reason": null,
+          "valid_events": 3,
+          "valid_frames": 92,
+          "valid_samples": 3,
+          "candidate_events": 5,
+          "symbol": "S_head",
+          "score": 9.57275174877814,
+          "source_frames": 239
+        },
+        "trunk": {
+          "raw": 143.5943938332341,
+          "unit": "deg",
+          "reason": null,
+          "valid_frames": 237,
+          "valid_samples": 237,
+          "symbol": "S_trunk",
+          "score": 9.984308516415991,
+          "source_frames": 239
+        },
+        "shoulder": {
+          "raw": 92.55443118685508,
+          "unit": "deg/s",
+          "valid_frames": 144,
+          "valid_pairs": 142,
+          "valid_samples": 142,
+          "reason": null,
+          "symbol": "V_touch",
+          "score": 9.575601411335041,
+          "source_frames": 239
+        }
+      },
+      "total": 9.902282129144112,
+      "weights": {
+        "headup": 0.1,
+        "trunk": 0.8,
+        "shoulder": 0.1
+      },
+      "calibration": {
+        "headup": {
+          "min_deg": 10.225053625082124,
+          "max_deg": 15.30499039887986
+        },
+        "trunk": {
+          "reference_flexion_deg": 36.4628217436476
+        },
+        "shoulder": {
+          "reference_speed_deg_s": 96.65652026544726
+        }
+      },
+      "measurement": {
+        "shoulder": {
+          "aggregation": "touch_window_mean",
+          "window_halfwidth_frames": 16
+        }
+      },
+      "quality": {
+        "warnings": [
+          "Provisional frozen relative scores; not validated skill grades. No grade training or per-video refitting.",
+          "Automatic numeric masks do not validate subject identity or left/right landmark identity; inspect the source video.",
+          "SAM2 touch candidates use original SG11 extrema on available observations and fixed 10px prominence / 200px ankle thresholds. Missing ball frames compress the detector clock; candidates are not verified contacts. Shoulder speed and window selection retain original frame indices.",
+          "Head ranges include upward and downward motion; ball direction changes are proxies, not confirmed contacts or gaze."
+        ],
+        "source_frames": 239,
+        "excluded_frames": 0,
+        "invalid_visibility_values": 0,
+        "missing_metrics": []
+      },
+      "video": {
+        "name": "인,인 기준1.MOV",
+        "frames": 239,
+        "width": 1920,
+        "height": 1080,
+        "fps": 29.974916387959865,
+        "clock": "source frame / average FPS",
+        "extraction_roi": null,
+        "cache_schema_version": 2,
+        "ball_source": "yolov8_sam2",
+        "yolo_model_sha256": "f59b3d833e2ff32e194b5bb8e08d211dc7c5bdf144b90d2c8412c47ccfc83b36",
+        "video_sha256": "3e08af037450c0efea6998851ea26b836aa0ea0a8e367cc0fce69c863cdd8570",
+        "pose_sha256": "9182dc2a41d612e6cbc675b8a3117fa21df5cb85cd2687fdda95159ef85ed93b",
+        "versions": {
+          "python": "3.11.12",
+          "mediapipe": "0.10.21",
+          "opencv": "4.11.0",
+          "numpy": "1.26.4",
+          "torch": "2.10.0",
+          "ultralytics": "8.4.22",
+          "SAM-2": "1.0"
+        },
+        "pose_model_sha256": "59e42d71bcd44cbdbabc419f0ff76686595fd265419566bd4009ef703ea8e1fe",
+        "tracks_sha256": "ad15fedd98c0ecc84d66f6157529bd220badf01005894a6b26aee2abeb3ca6e2",
+        "sam2_checkpoint_sha256": "6d1aa6f30de5c92224f8172114de081d104bbd23dd9dc5c58996f0cad5dc4d38",
+        "ball_tracking_warnings": []
+      },
+      "provisional": true,
+      "cache_replay": true,
+      "manual_exclusions": false
+    },
+    {
+      "version": "2026-10-11-sam2-touch16",
+      "metrics": {
+        "headup": {
+          "raw": 14.551918444856842,
+          "unit": "deg",
+          "reason": null,
+          "valid_events": 5,
+          "valid_frames": 165,
+          "valid_samples": 5,
+          "candidate_events": 6,
+          "symbol": "S_head",
+          "score": 8.96228951010739,
+          "source_frames": 292
+        },
+        "trunk": {
+          "raw": 149.7652133460551,
+          "unit": "deg",
+          "reason": null,
+          "valid_frames": 273,
+          "valid_samples": 273,
+          "symbol": "S_trunk",
+          "score": 8.29194922612161,
+          "source_frames": 292
+        },
+        "shoulder": {
+          "raw": 78.88216875772092,
+          "unit": "deg/s",
+          "valid_frames": 167,
+          "valid_pairs": 161,
+          "valid_samples": 161,
+          "reason": null,
+          "symbol": "V_touch",
+          "score": 8.16108096392124,
+          "source_frames": 292
+        }
+      },
+      "total": 8.34589642830015,
+      "weights": {
+        "headup": 0.1,
+        "trunk": 0.8,
+        "shoulder": 0.1
+      },
+      "calibration": {
+        "headup": {
+          "min_deg": 10.225053625082124,
+          "max_deg": 15.30499039887986
+        },
+        "trunk": {
+          "reference_flexion_deg": 36.4628217436476
+        },
+        "shoulder": {
+          "reference_speed_deg_s": 96.65652026544726
+        }
+      },
+      "measurement": {
+        "shoulder": {
+          "aggregation": "touch_window_mean",
+          "window_halfwidth_frames": 16
+        }
+      },
+      "quality": {
+        "warnings": [
+          "Provisional frozen relative scores; not validated skill grades. No grade training or per-video refitting.",
+          "Automatic numeric masks do not validate subject identity or left/right landmark identity; inspect the source video.",
+          "SAM2 touch candidates use original SG11 extrema on available observations and fixed 10px prominence / 200px ankle thresholds. Missing ball frames compress the detector clock; candidates are not verified contacts. Shoulder speed and window selection retain original frame indices.",
+          "Head ranges include upward and downward motion; ball direction changes are proxies, not confirmed contacts or gaze."
+        ],
+        "source_frames": 292,
+        "excluded_frames": 0,
+        "invalid_visibility_values": 0,
+        "missing_metrics": []
+      },
+      "video": {
+        "name": "인,인 7-2.MOV",
+        "frames": 292,
+        "width": 1920,
+        "height": 1080,
+        "fps": 29.974337040205302,
+        "clock": "source frame / average FPS",
+        "extraction_roi": null,
+        "cache_schema_version": 2,
+        "ball_source": "yolov8_sam2",
+        "yolo_model_sha256": "f59b3d833e2ff32e194b5bb8e08d211dc7c5bdf144b90d2c8412c47ccfc83b36",
+        "video_sha256": "6895e8cc1923eb234980934e87317be78ee5a629ccd1c0e01e1590413fa8e56a",
+        "pose_sha256": "b5d6d0d58e497259b7754ff272fcca576642d3a8851e8ee441258c8bd692325f",
+        "versions": {
+          "python": "3.11.12",
+          "mediapipe": "0.10.21",
+          "opencv": "4.11.0",
+          "numpy": "1.26.4",
+          "torch": "2.10.0",
+          "ultralytics": "8.4.22",
+          "SAM-2": "1.0"
+        },
+        "pose_model_sha256": "59e42d71bcd44cbdbabc419f0ff76686595fd265419566bd4009ef703ea8e1fe",
+        "tracks_sha256": "d5c2beacce4bfdc66de02a9f6e586681dc8f8019db2edb11a1cbdfd49085cadd",
+        "sam2_checkpoint_sha256": "6d1aa6f30de5c92224f8172114de081d104bbd23dd9dc5c58996f0cad5dc4d38",
+        "ball_tracking_warnings": []
+      },
+      "provisional": true,
+      "cache_replay": true,
+      "manual_exclusions": false
+    },
+    {
+      "version": "2026-10-11-sam2-touch16",
+      "metrics": {
+        "headup": {
+          "raw": 11.036884758058584,
+          "unit": "deg",
+          "reason": null,
+          "valid_events": 4,
+          "valid_frames": 132,
+          "valid_samples": 4,
+          "candidate_events": 4,
+          "symbol": "S_head",
+          "score": 4.1186788702070345,
+          "source_frames": 240
+        },
+        "trunk": {
+          "raw": 151.40101288767556,
+          "unit": "deg",
+          "reason": null,
+          "valid_frames": 214,
+          "valid_samples": 214,
+          "symbol": "S_trunk",
+          "score": 7.843328010484222,
+          "source_frames": 240
+        },
+        "shoulder": {
+          "raw": 86.87143370703254,
+          "unit": "deg/s",
+          "valid_frames": 132,
+          "valid_pairs": 128,
+          "valid_samples": 128,
+          "reason": null,
+          "symbol": "V_touch",
+          "score": 8.987643406617371,
+          "source_frames": 240
+        }
+      },
+      "total": 7.585294636069818,
+      "weights": {
+        "headup": 0.1,
+        "trunk": 0.8,
+        "shoulder": 0.1
+      },
+      "calibration": {
+        "headup": {
+          "min_deg": 10.225053625082124,
+          "max_deg": 15.30499039887986
+        },
+        "trunk": {
+          "reference_flexion_deg": 36.4628217436476
+        },
+        "shoulder": {
+          "reference_speed_deg_s": 96.65652026544726
+        }
+      },
+      "measurement": {
+        "shoulder": {
+          "aggregation": "touch_window_mean",
+          "window_halfwidth_frames": 16
+        }
+      },
+      "quality": {
+        "warnings": [
+          "Provisional frozen relative scores; not validated skill grades. No grade training or per-video refitting.",
+          "Automatic numeric masks do not validate subject identity or left/right landmark identity; inspect the source video.",
+          "SAM2 touch candidates use original SG11 extrema on available observations and fixed 10px prominence / 200px ankle thresholds. Missing ball frames compress the detector clock; candidates are not verified contacts. Shoulder speed and window selection retain original frame indices.",
+          "Head ranges include upward and downward motion; ball direction changes are proxies, not confirmed contacts or gaze."
+        ],
+        "source_frames": 240,
+        "excluded_frames": 0,
+        "invalid_visibility_values": 0,
+        "missing_metrics": []
+      },
+      "video": {
+        "name": "인,인 3-1.MOV",
+        "frames": 240,
+        "width": 1920,
+        "height": 1080,
+        "fps": 29.975020815986678,
+        "clock": "source frame / average FPS",
+        "extraction_roi": null,
+        "cache_schema_version": 2,
+        "ball_source": "yolov8_sam2",
+        "yolo_model_sha256": "f59b3d833e2ff32e194b5bb8e08d211dc7c5bdf144b90d2c8412c47ccfc83b36",
+        "video_sha256": "d7965e77809629ecd235623d558254745409d6178450299bce6547d17f6f8fa4",
+        "pose_sha256": "dd7cbd7c2b8c729fef3d85a47b33406b1cf6d1807db5162753e55ea64c1b2eb4",
+        "versions": {
+          "python": "3.11.12",
+          "mediapipe": "0.10.21",
+          "opencv": "4.11.0",
+          "numpy": "1.26.4",
+          "torch": "2.10.0",
+          "ultralytics": "8.4.22",
+          "SAM-2": "1.0"
+        },
+        "pose_model_sha256": "59e42d71bcd44cbdbabc419f0ff76686595fd265419566bd4009ef703ea8e1fe",
+        "tracks_sha256": "a1eb2e215a60f574913797098a3139dc28a222878dc63f28ffc0e22257e7c263",
+        "sam2_checkpoint_sha256": "6d1aa6f30de5c92224f8172114de081d104bbd23dd9dc5c58996f0cad5dc4d38",
+        "ball_tracking_warnings": []
+      },
+      "provisional": true,
+      "cache_replay": true,
+      "manual_exclusions": false
+    }
+  ]
+}

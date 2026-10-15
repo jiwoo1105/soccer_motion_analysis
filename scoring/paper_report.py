@@ -21,7 +21,7 @@ def write_paper_csv(reports, output_path):
               'trunk_reason', 'headup_reason', 'shoulder_reason']
     path = Path(output_path)
     with path.open('w', newline='', encoding='utf-8-sig') as stream:
-        writer = csv.DictWriter(stream, fieldnames=fields)
+        writer = csv.DictWriter(stream, fieldnames=fields, lineterminator='\n')
         writer.writeheader()
         for report in reports:
             metrics = report['metrics']

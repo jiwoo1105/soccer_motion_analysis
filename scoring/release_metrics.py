@@ -485,7 +485,9 @@ def measure_video(pose, candidates, fps, calibration=None, weights=None, exclude
     head['invalid_candidate_geometry'] = invalid_candidates
     head['counts']['invalid_candidate_geometry_frames'] = int(invalid_candidates.sum())
     metrics = dict(headup=head_metric, trunk=trunk_metric, shoulder=shoulder_metric)
+    from scoring.paper_report import PAPER_SYMBOLS
     for key, metric in metrics.items():
+        metric['symbol'] = PAPER_SYMBOLS[key]
         value = metric['raw']
         score = None
         if value is not None:

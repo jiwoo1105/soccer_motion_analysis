@@ -95,7 +95,7 @@ def test_cli_passes_profile_window_to_measurement_and_publishes_actual_settings(
     assert clip['scoring_profile']['sha256'] == sha256(calibration)
 
 
-def test_default_cli_routes_sam2_raw_tracks_to_scoring(tmp_path):
+def test_default_cli_routes_sam2_raw_tracks_to_scoring(tmp_path, capsys):
     source = tmp_path / 'source.mov'
     source.write_bytes(b'original')
     output = tmp_path / 'result'
@@ -105,13 +105,17 @@ def test_default_cli_routes_sam2_raw_tracks_to_scoring(tmp_path):
         assert ball_backend == 'yolov8_sam2'
         return pose_fixture(), tracks, meta
     with patch('scoring.video_pipeline.load_cached_clip', side_effect=cached), \
-         patch('scoring.panorama_report.render_panorama'), patch('scoring.panorama_report.write_html_report'):
+         patch('scoring.panorama_report.render_panorama') as renderer, patch('scoring.panorama_report.write_html_report'):
         status = analyze_video.main(['--video', str(source), '--output', str(output),
-                                     '--reuse-cache', str(tmp_path / 'cache')])
+                                     '--reuse-cache', str(tmp_path / 'cache'), '--report-mode', 'paper'])
     assert status == 0
     report = json.loads((output / 'report.json').read_text())['clips'][0]
     assert report['video']['ball_source'] == 'yolov8_sam2'
     assert report['diagnostics']['shoulder']['touch_event_source'] == 'yolov8_sam2'
+    assert renderer.call_args.kwargs['report_mode'] == 'paper'
+    assert (output / 'paper_metrics.csv').is_file()
+    console = capsys.readouterr().out
+    assert all(symbol in console for symbol in ('S_trunk:', 'S_head:', 'V_touch:'))
 
 
 def test_missing_local_sam_checkpoint_fails_before_loading_yolo_or_creating_output(tmp_path):

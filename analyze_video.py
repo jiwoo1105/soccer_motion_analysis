@@ -26,6 +26,8 @@ def parser():
     p.add_argument('--reuse-cache',type=Path,help='A previous clips/clip-... directory; single video only, verifies source hash')
     p.add_argument('--frames',type=int,default=6,help='Source frames shown per panorama row (2 to 12)')
     p.add_argument('--font',type=Path,help='Optional TTF/TTC font supporting Korean')
+    p.add_argument('--report-mode',choices=('scores','paper'),default='scores',
+                   help='Show relative scores or raw S_trunk / S_head / V_touch in the panorama')
     return p
 
 
@@ -50,6 +52,7 @@ def run(args):
     from scoring.release_metrics import VERSION, measure_video, validate_measurement, validate_parameters
     from scoring.video_pipeline import sha256,write_json,infer_clip,load_cached_clip,local_weight
     from scoring.panorama_report import render_panorama,write_html_report
+    from scoring.paper_report import PAPER_SYMBOLS,measurement_text,write_paper_csv
     import hashlib
     profile_bytes=args.calibration.read_bytes()
     profile_hash=hashlib.sha256(profile_bytes).hexdigest()
@@ -108,8 +111,11 @@ def run(args):
                           scoring_profile=dict(name=args.calibration.name,sha256=profile_hash))
             reports.append(report)
             items.append(dict(video_path=video,pose=pose,report=report))
-        render_panorama(items,staging/'panorama.png',n_frames=args.frames,font_path=args.font)
+        render_panorama(items,staging/'panorama.png',n_frames=args.frames,font_path=args.font,
+                        report_mode=args.report_mode)
+        write_paper_csv(reports,staging/'paper_metrics.csv')
         write_json(staging/'report.json',dict(version=VERSION,provisional=True,
+                                             report_mode=args.report_mode,
                                              calibration=calibration,measurement=measurement,clips=reports))
         write_html_report(reports,staging/'panorama.png',staging/'report.html')
         if sha256(args.calibration) != profile_hash:
@@ -125,6 +131,10 @@ def run(args):
             raise FileExistsError('Output was created by another process; choose a new directory')
         staging.rename(output)
         for report in reports:
+            print(report['video']['name'] + ': ' + ' | '.join(
+                f"{symbol}: {measurement_text(report['metrics'][key]['raw'])} "
+                f"{report['metrics'][key].get('unit', '')}"
+                for key,symbol in PAPER_SYMBOLS.items()))
             values=' | '.join(f"{k}: {v['score']:.2f}" if v['score'] is not None else f"{k}: N/A ({v['reason']})" for k,v in report['metrics'].items())
             total='N/A' if report['total'] is None else f"{report['total']:.2f}"
             print(f"{report['video']['name']}: {values} | total: {total}")

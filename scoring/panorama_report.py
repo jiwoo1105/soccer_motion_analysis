@@ -21,6 +21,8 @@ import cv2
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont, PngImagePlugin
 
+from scoring.paper_report import PAPER_SYMBOLS
+
 
 _METRICS = (("headup", "Head-up"), ("trunk", "Trunk"),
             ("shoulder", "Shoulder speed"))
@@ -42,6 +44,10 @@ _LABELS = {
     "shoulder": ("Shoulder speed", "어깨 회전 속도"),
     "score": ("SCORE / 10", "점수 / 10"),
     "raw": ("Raw", "측정값"),
+    "paper_subtitle": ("Source frames / pose overlays / paper measurements",
+                       "원본 프레임 / 자세 오버레이 / 논문 측정값"),
+    "paper_units": ("S_trunk and S_head: degrees. V_touch: degrees per second. Values are raw measurements.",
+                    "S_trunk·S_head: 각도(°), V_touch: 방향 변화 속도(°/s). 원시 측정값을 표시합니다."),
     "reason": ("Reason", "사유"),
     "unavailable": ("Measurement unavailable", "측정 불가"),
     "total": ("Total", "총점"),
@@ -351,7 +357,24 @@ def _sample_text(metric, key, source_frames, fonts):
     return text
 
 
-def _metric_panel(draw, report, x, y, width, fonts):
+def _metric_panel(draw, report, x, y, width, fonts, report_mode='scores'):
+    if report_mode == 'paper':
+        draw.text((x, y), fonts.label('raw'), font=fonts.at(17), fill=_MUTED)
+        y += 34
+        for key in PAPER_SYMBOLS:
+            metric = report['metrics'][key]
+            draw.text((x, y), f'{PAPER_SYMBOLS[key]} · {fonts.label(key)}',
+                      font=fonts.at(23), fill=_INK)
+            y += 36
+            y = _paragraph(draw, f"{_value(metric.get('raw'), 2)} {metric.get('unit', '')}",
+                           x, y, width, fonts, size=29, color=_INK)
+            y = _paragraph(draw, _sample_text(metric, key, report['video']['frames'], fonts),
+                           x, y, width, fonts, size=16)
+            if metric.get('reason') or _value(metric.get('raw')) == 'N/A':
+                y = _paragraph(draw, str(metric.get('reason') or fonts.label('unavailable')),
+                               x, y, width, fonts, size=17)
+            y += 18
+        return y
     draw.text((x, y), fonts.label("score"), font=fonts.at(17), fill=_MUTED)
     y += 34
     for key, _ in _METRICS:
@@ -391,7 +414,7 @@ def _atomic_write(path, writer):
         temporary.unlink(missing_ok=True)
 
 
-def render_panorama(items, output_path, n_frames=6, font_path=None):
+def render_panorama(items, output_path, n_frames=6, font_path=None, report_mode='scores'):
     """Write a 300-dpi PNG of real source frames and supplied scores; return Path.
 
     Samples are rounded ``linspace(0, frames-1, n_frames)`` source indices (zero
@@ -401,6 +424,8 @@ def render_panorama(items, output_path, n_frames=6, font_path=None):
     A decoder failure or inconsistent frame count raises rather than omitting a
     panel. ``font_path`` names a local TTF/OTF/TTC font; none is copied or fetched.
     """
+    if report_mode not in ('scores', 'paper'):
+        raise ValueError('report_mode must be scores or paper')
     if not isinstance(n_frames, Integral) or isinstance(n_frames, bool) or n_frames <= 0:
         raise ValueError("n_frames must be a positive integer")
     items = list(items)
@@ -431,9 +456,9 @@ def render_panorama(items, output_path, n_frames=6, font_path=None):
         measure = ImageDraw.Draw(Image.new("RGB", (1, 1)))
         title_end = _paragraph(measure, title, margin, 22, width - 2 * margin, fonts, 25, _INK)
         top = title_end + 22
-        metric_end = _metric_panel(measure, report, metric_x, top, metric_width, fonts)
+        metric_end = _metric_panel(measure, report, metric_x, top, metric_width, fonts, report_mode)
         content_end = max(top + _TILE[1] + 58, metric_end)
-        notes = [fonts.label("weights") + ": " + "; ".join(
+        notes = [] if report_mode == 'paper' else [fonts.label("weights") + ": " + "; ".join(
             f"{label} {_value(value)}" for label, value in _weights(report, fonts.korean))]
         notes.extend(f"{fonts.label('quality')}: {warning}" for warning in _row_warnings(report))
         if count < n_frames:
@@ -456,13 +481,15 @@ def render_panorama(items, output_path, n_frames=6, font_path=None):
                 label_width = draw.textlength(label, font=fonts.at(17))
                 draw.rectangle((x + 7, top + 8, x + label_width + 20, top + 37), fill="white")
                 draw.text((x + 13, top + 11), label, font=fonts.at(17), fill=_MUTED)
-        _metric_panel(draw, report, metric_x, top, metric_width, fonts)
+        _metric_panel(draw, report, metric_x, top, metric_width, fonts, report_mode)
         y = content_end + 18
         for note in notes:
             y = _paragraph(draw, note, margin, y, width - 2 * margin, fonts, 17)
         rows.append(row)
     header_height = 158
-    footer_lines = [fonts.label(key) for key in ("limitation", "head_limitation", "clock", "overlay")]
+    footer_lines = [fonts.label(key) for key in (
+        'paper_units' if report_mode == 'paper' else 'limitation',
+        'head_limitation', 'clock', 'overlay')]
     footer_measure = ImageDraw.Draw(Image.new("RGB", (1, 1)))
     footer_height = 24
     for line in footer_lines:
@@ -471,7 +498,8 @@ def render_panorama(items, output_path, n_frames=6, font_path=None):
     figure = Image.new("RGB", (width, header_height + sum(row.height for row in rows) + footer_height + 24), "white")
     draw = ImageDraw.Draw(figure)
     draw.text((margin, 32), fonts.label("title"), font=fonts.at(34), fill=_INK)
-    _paragraph(draw, fonts.label("subtitle"), margin, 89, width - 2 * margin, fonts, 20)
+    _paragraph(draw, fonts.label("paper_subtitle" if report_mode == 'paper' else 'subtitle'),
+               margin, 89, width - 2 * margin, fonts, 20)
     y = header_height
     for row in rows:
         figure.paste(row, (0, y))
@@ -525,7 +553,7 @@ def write_html_report(reports, image_path, output_path):
             metric = report["metrics"][key]
             reason = metric.get("reason") or ("Measurement unavailable" if _value(metric.get("score")) == "N/A" else "—")
             counts = {key: value for key, value in metric.items() if key not in {"raw", "unit", "score", "reason"}}
-            values = (label, _value(metric.get("raw")), metric.get("unit", ""),
+            values = (f'{PAPER_SYMBOLS[key]} · {label}', _value(metric.get("raw")), metric.get("unit", ""),
                       _value(metric.get("score")), reason, _exact(counts) or "—")
             rows.append("<tr>" + "".join(f"<td>{escape(str(v))}</td>" for v in values) + "</tr>")
         total = escape(_value(report.get("total")))
